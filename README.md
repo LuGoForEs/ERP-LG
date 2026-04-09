@@ -131,10 +131,16 @@ docker compose up --build -d
 
 ## Organizacion del equipo
 
-El desarrollo se divide en dos tracks paralelos:
+El desarrollo se divide en entornos aislados y ramas específicas para agilizar el trabajo en paralelo:
 
-- **Track 1 (Dominio y Negocio):** Modelos, schemas Pydantic, validaciones de negocio y maquinas de estado.
-- **Track 2 (Infraestructura y Seguridad):** Docker, JWT/RBAC, wrappers REST, audit trail y persistencia.
+- **Ramas de Desarrollo:**
+  - `dev-db`: Para la configuración, schemas y actualizaciones de base de datos.
+  - `dev-backend`: Para la API, modelos de negocio (DDD), reglas y seguridad.
+  - `dev-frontend`: Para la interfaz de usuario, componentes de React y estilos.
+
+- **Tracks de Trabajo:**
+  - **Track 1 (Dominio y Negocio):** Modelos, schemas Pydantic, validaciones de negocio y maquinas de estado.
+  - **Track 2 (Infraestructura y Seguridad):** Docker, JWT/RBAC, wrappers REST, audit trail y persistencia.
 
 ## Seguridad (planificado)
 

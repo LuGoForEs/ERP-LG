@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from app.api.v1.endpoints.comercial import anticipos_db, ordenes_db
+from app.api.v1.endpoints.logistica import despachos_db as logistica_despachos_db
 
 router = APIRouter()
 
@@ -62,4 +63,29 @@ async def validar_anticipo(
             "anticipo": anticipo,
             "orden": ordenes_db.get(of_id),
         },
+    }
+
+
+@router.put("/despachos/{despacho_id}/aprobar")
+async def aprobar_despacho(
+    despacho_id: int,
+    aprobado: bool = Form(...),
+    observacion: str = Form(""),
+):
+    if despacho_id not in logistica_despachos_db:
+        raise HTTPException(status_code=404, detail=f"Despacho {despacho_id} no encontrado")
+
+    despacho = logistica_despachos_db[despacho_id]
+    if despacho["estado"] != "esperando_autorizacion":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Despacho {despacho_id} no está esperando autorización. Estado: {despacho['estado']}",
+        )
+
+    despacho["estado"] = "autorizado" if aprobado else "rechazado"
+    despacho["observacion_admin"] = observacion
+
+    return {
+        "message": f"Despacho {despacho_id} {'autorizado' if aprobado else 'rechazado'}",
+        "data": despacho,
     }

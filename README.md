@@ -47,6 +47,7 @@ ERP-LG/
 │   │       ├── produccion.py
 │   │       └── logistica.py
 │   ├── requirements.txt
+│   ├── docker-compose.yml
 │   └── Dockerfile.dev
 ├── frontend/
 │   ├── src/
@@ -56,10 +57,10 @@ ERP-LG/
 │   │       └── AdminPanel.jsx
 │   ├── package.json
 │   ├── vite.config.js
+│   ├── docker-compose.yml
 │   └── Dockerfile.dev
 ├── database/
 │   └── docker-compose.yml
-├── docker-compose.yml
 ```
 
 ## Requisitos previos
@@ -79,9 +80,15 @@ cd database
 docker compose up -d
 ```
 
-**Paso 2: Levantar la aplicación (Backend + Frontend)**
+**Paso 2: Levantar el Backend**
 ```bash
-cd ..
+cd ../backend
+docker compose up --build -d
+```
+
+**Paso 3: Levantar el Frontend**
+```bash
+cd ../frontend
 docker compose up --build -d
 ```
 

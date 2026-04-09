@@ -1,0 +1,17 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=mysql+asyncmy://root:erp_root_password@db:3306/erp_industrial
+    networks:
+      - erp-network
+
+networks:
+  erp-network:
+    external: true

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import AdminPanel from './components/AdminPanel.jsx'
+import DesarrolloPanel from './components/DesarrolloPanel.jsx'
 
 const API_BASE = '/api/v1'
 
@@ -345,7 +346,13 @@ function App() {
         </section>
       )}
 
-      {activeModule && activeModule !== 'administracion' && (
+      {activeModule === 'desarrollo' && (
+        <section className="tester-panel">
+          <DesarrolloPanel />
+        </section>
+      )}
+
+      {activeModule && activeModule !== 'administracion' && activeModule !== 'desarrollo' && (
         <section className="tester-panel">
           {MODULES.filter((m) => m.id === activeModule).map((mod) => (
             <div key={mod.id}>

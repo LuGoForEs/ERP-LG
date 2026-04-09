@@ -1,2 +1,5 @@
-.\Documentacion_Completa_ERP.md
-.\Tareas_Desarrollador_Track2.md
+Documentacion_Completa_ERP.md
+Tareas_Desarrollador_Track2.md
+__pycache__/
+.claude/
+*.pyc

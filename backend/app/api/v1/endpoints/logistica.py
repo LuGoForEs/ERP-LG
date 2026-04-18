@@ -1,11 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from app.api.v1.endpoints.produccion import lotes_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from app.db.session import get_session
+from app.models import Despacho, Lote
 
 router = APIRouter()
-
-despachos_db = {}
-despacho_counter = 0
 
 
 class DespachoCreate(BaseModel):
@@ -20,74 +21,91 @@ async def get_logistica_status():
 
 
 @router.post("/despachos")
-async def create_despacho(payload: DespachoCreate):
-    global despacho_counter
-
-    if payload.lote_id not in lotes_db:
+async def create_despacho(
+    payload: DespachoCreate,
+    session: AsyncSession = Depends(get_session),
+):
+    lote = await session.get(Lote, payload.lote_id)
+    if lote is None:
         raise HTTPException(
             status_code=404,
             detail=f"Lote {payload.lote_id} no encontrado en Producción",
         )
-
-    lote = lotes_db[payload.lote_id]
-    if lote["estado"] != "terminado":
+    if lote.estado != "terminado":
         raise HTTPException(
             status_code=400,
-            detail=f"Lote {payload.lote_id} no está terminado. Estado: {lote['estado']}",
+            detail=f"Lote {payload.lote_id} no está terminado. Estado: {lote.estado}",
         )
 
-    despacho_counter += 1
-    despacho = {
-        "id": despacho_counter,
-        "lote_id": payload.lote_id,
-        "of_id": lote.get("of_id"),
-        "destino": payload.destino,
-        "transportista": payload.transportista,
-        "estado": "pendiente",
-    }
-    despachos_db[despacho_counter] = despacho
+    despacho = Despacho(
+        lote_id=payload.lote_id,
+        of_id=lote.of_id,
+        destino=payload.destino,
+        transportista=payload.transportista,
+        estado="pendiente",
+    )
+    session.add(despacho)
 
-    lote["estado"] = "en_despacho"
+    lote.estado = "en_despacho"
+    session.add(lote)
 
-    return {"message": "Despacho creado", "data": despacho}
+    await session.commit()
+    await session.refresh(despacho)
+
+    return {"message": "Despacho creado", "data": despacho.model_dump()}
 
 
 @router.get("/despachos")
-async def list_despachos():
-    return {"data": list(despachos_db.values())}
+async def list_despachos(session: AsyncSession = Depends(get_session)):
+    rows = (await session.scalars(select(Despacho))).all()
+    return {"data": [d.model_dump() for d in rows]}
 
 
 @router.post("/despachos/{despacho_id}/solicitar-autorizacion")
-async def solicitar_autorizacion(despacho_id: int):
-    if despacho_id not in despachos_db:
+async def solicitar_autorizacion(
+    despacho_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    despacho = await session.get(Despacho, despacho_id)
+    if despacho is None:
         raise HTTPException(status_code=404, detail=f"Despacho {despacho_id} no encontrado")
 
-    despacho = despachos_db[despacho_id]
-    if despacho["estado"] != "pendiente":
+    if despacho.estado != "pendiente":
         raise HTTPException(
             status_code=400,
-            detail=f"Despacho {despacho_id} no está pendiente. Estado: {despacho['estado']}",
+            detail=f"Despacho {despacho_id} no está pendiente. Estado: {despacho.estado}",
         )
 
-    despacho["estado"] = "esperando_autorizacion"
+    despacho.estado = "esperando_autorizacion"
+    session.add(despacho)
+    await session.commit()
+    await session.refresh(despacho)
+
     return {
         "message": f"Autorización solicitada para despacho {despacho_id}",
-        "data": despacho,
+        "data": despacho.model_dump(),
     }
 
 
 @router.post("/despachos/{despacho_id}/ejecutar")
-async def ejecutar_despacho(despacho_id: int):
-    if despacho_id not in despachos_db:
+async def ejecutar_despacho(
+    despacho_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    despacho = await session.get(Despacho, despacho_id)
+    if despacho is None:
         raise HTTPException(status_code=404, detail=f"Despacho {despacho_id} no encontrado")
 
-    despacho = despachos_db[despacho_id]
-    if despacho["estado"] != "autorizado":
+    if despacho.estado != "autorizado":
         raise HTTPException(
             status_code=400,
-            detail=f"Despacho {despacho_id} no está autorizado. Estado: {despacho['estado']}. "
+            detail=f"Despacho {despacho_id} no está autorizado. Estado: {despacho.estado}. "
             "Administración debe aprobarlo primero.",
         )
 
-    despacho["estado"] = "ejecutado"
-    return {"message": f"Despacho {despacho_id} ejecutado", "data": despacho}
+    despacho.estado = "ejecutado"
+    session.add(despacho)
+    await session.commit()
+    await session.refresh(despacho)
+
+    return {"message": f"Despacho {despacho_id} ejecutado", "data": despacho.model_dump()}

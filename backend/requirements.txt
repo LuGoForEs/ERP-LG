@@ -4,5 +4,6 @@ uvicorn
 alembic
 pyjwt
 passlib[bcrypt]
-asyncpg
+asyncmy
+aiofiles
 python-multipart

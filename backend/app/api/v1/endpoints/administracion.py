@@ -1,6 +1,9 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from app.api.v1.endpoints.comercial import anticipos_db, ordenes_db
-from app.api.v1.endpoints.logistica import despachos_db as logistica_despachos_db
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from app.db.session import get_session
+from app.models import Anticipo, Despacho, OrdenFabricacion
 
 router = APIRouter()
 
@@ -11,13 +14,14 @@ async def get_administracion_status():
 
 
 @router.get("/ordenes")
-async def list_ordenes_con_anticipos():
+async def list_ordenes_con_anticipos(session: AsyncSession = Depends(get_session)):
+    ordenes = (await session.scalars(select(OrdenFabricacion))).all()
+    anticipos = (await session.scalars(select(Anticipo))).all()
+    by_of = {a.of_id: a for a in anticipos}
     result = []
-    for orden in ordenes_db.values():
-        anticipo = next(
-            (a for a in anticipos_db.values() if a["of_id"] == orden["id"]), None
-        )
-        result.append({**orden, "anticipo": anticipo})
+    for o in ordenes:
+        a = by_of.get(o.id)
+        result.append({**o.model_dump(), "anticipo": a.model_dump() if a else None})
     return {"data": result}
 
 
@@ -27,16 +31,16 @@ async def validar_anticipo(
     pagado: bool = Form(...),
     observacion: str = Form(""),
     factura: UploadFile | None = File(None),
+    session: AsyncSession = Depends(get_session),
 ):
-    if anticipo_id not in anticipos_db:
+    anticipo = await session.get(Anticipo, anticipo_id)
+    if anticipo is None:
         raise HTTPException(status_code=404, detail=f"Anticipo {anticipo_id} no encontrado")
 
-    anticipo = anticipos_db[anticipo_id]
-
-    if anticipo["estado"] not in ("pendiente", "rechazado"):
+    if anticipo.estado not in ("pendiente", "rechazado"):
         raise HTTPException(
             status_code=400,
-            detail=f"Anticipo ya procesado: {anticipo['estado']}",
+            detail=f"Anticipo ya procesado: {anticipo.estado}",
         )
 
     factura_info = None
@@ -48,20 +52,27 @@ async def validar_anticipo(
             "tamanio_bytes": len(contenido),
         }
 
-    anticipo["pagado"] = pagado
-    anticipo["estado"] = "validado" if pagado else "rechazado"
-    anticipo["observacion"] = observacion
-    anticipo["factura_archivo"] = factura_info
+    anticipo.pagado = pagado
+    anticipo.estado = "validado" if pagado else "rechazado"
+    anticipo.observacion = observacion
+    anticipo.factura_archivo = factura_info
+    session.add(anticipo)
 
-    of_id = anticipo.get("of_id")
-    if of_id and of_id in ordenes_db:
-        ordenes_db[of_id]["estado"] = "aprobada" if pagado else "rechazada_anticipo"
+    orden = await session.get(OrdenFabricacion, anticipo.of_id)
+    if orden is not None:
+        orden.estado = "aprobada" if pagado else "rechazada_anticipo"
+        session.add(orden)
+
+    await session.commit()
+    await session.refresh(anticipo)
+    if orden is not None:
+        await session.refresh(orden)
 
     return {
         "message": f"Anticipo {anticipo_id} {'validado' if pagado else 'rechazado'}",
         "data": {
-            "anticipo": anticipo,
-            "orden": ordenes_db.get(of_id),
+            "anticipo": anticipo.model_dump(),
+            "orden": orden.model_dump() if orden else None,
         },
     }
 
@@ -71,21 +82,25 @@ async def aprobar_despacho(
     despacho_id: int,
     aprobado: bool = Form(...),
     observacion: str = Form(""),
+    session: AsyncSession = Depends(get_session),
 ):
-    if despacho_id not in logistica_despachos_db:
+    despacho = await session.get(Despacho, despacho_id)
+    if despacho is None:
         raise HTTPException(status_code=404, detail=f"Despacho {despacho_id} no encontrado")
 
-    despacho = logistica_despachos_db[despacho_id]
-    if despacho["estado"] != "esperando_autorizacion":
+    if despacho.estado != "esperando_autorizacion":
         raise HTTPException(
             status_code=400,
-            detail=f"Despacho {despacho_id} no está esperando autorización. Estado: {despacho['estado']}",
+            detail=f"Despacho {despacho_id} no está esperando autorización. Estado: {despacho.estado}",
         )
 
-    despacho["estado"] = "autorizado" if aprobado else "rechazado"
-    despacho["observacion_admin"] = observacion
+    despacho.estado = "autorizado" if aprobado else "rechazado"
+    despacho.observacion_admin = observacion
+    session.add(despacho)
+    await session.commit()
+    await session.refresh(despacho)
 
     return {
         "message": f"Despacho {despacho_id} {'autorizado' if aprobado else 'rechazado'}",
-        "data": despacho,
+        "data": despacho.model_dump(),
     }

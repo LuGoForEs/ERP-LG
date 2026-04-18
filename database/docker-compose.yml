@@ -11,6 +11,12 @@ services:
       - db_data:/var/lib/mysql
     networks:
       - erp-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
 
 volumes:
   db_data:

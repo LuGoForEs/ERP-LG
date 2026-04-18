@@ -1,13 +1,13 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
-from app.api.v1.endpoints.comercial import anticipos_db, ordenes_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlmodel import select
+
+from app.db.session import get_session
+from app.models import Anticipo, OrdenFabricacion, PedidoMaterial, PedidoMaterialItem, Plano
 
 router = APIRouter()
-
-pedidos_db = {}
-planos_db = {}
-pedido_counter = 0
-plano_counter = 0
 
 
 class ItemPedidoMaterial(BaseModel):
@@ -31,19 +31,44 @@ class PedidoMaterialCreate(BaseModel):
 ALLOWED_MIME_TYPES = {"application/pdf"}
 
 
-def verificar_of_aprobada(of_id):
-    if of_id not in ordenes_db:
+async def verificar_of_aprobada(of_id: int, session: AsyncSession):
+    orden = await session.get(OrdenFabricacion, of_id)
+    if orden is None:
         raise HTTPException(status_code=404, detail=f"OF {of_id} no encontrada")
-    orden = ordenes_db[of_id]
-    if orden["estado"] != "aprobada":
-        anticipo = next(
-            (a for a in anticipos_db.values() if a["of_id"] == of_id), None
-        )
-        estado_anticipo = anticipo["estado"] if anticipo else "sin anticipo"
+    if orden.estado != "aprobada":
+        anticipo = (
+            await session.scalars(select(Anticipo).where(Anticipo.of_id == of_id))
+        ).first()
+        estado_anticipo = anticipo.estado if anticipo else "sin anticipo"
         raise HTTPException(
             status_code=403,
-            detail=f"OF {of_id} no disponible. Estado: {orden['estado']}. Anticipo: {estado_anticipo}",
+            detail=f"OF {of_id} no disponible. Estado: {orden.estado}. Anticipo: {estado_anticipo}",
         )
+    return orden
+
+
+def _pedido_dump(pedido: PedidoMaterial) -> dict:
+    return {
+        "id": pedido.id,
+        "of_id": pedido.of_id,
+        "emisor": pedido.emisor,
+        "fecha": pedido.fecha,
+        "plazo_entrega": pedido.plazo_entrega,
+        "equipo": pedido.equipo,
+        "estado": pedido.estado,
+        "items": [
+            {
+                "id": it.id,
+                "cantidad": it.cantidad,
+                "descripcion": it.descripcion,
+                "uso_en": it.uso_en,
+                "observaciones": it.observaciones,
+                "oc_numero": it.oc_numero,
+                "oc_fecha": it.oc_fecha,
+            }
+            for it in pedido.items
+        ],
+    }
 
 
 @router.get("/")
@@ -52,34 +77,51 @@ async def get_desarrollo_status():
 
 
 @router.get("/ordenes-disponibles")
-async def list_ordenes_disponibles():
-    disponibles = [o for o in ordenes_db.values() if o["estado"] == "aprobada"]
-    return {"data": disponibles}
+async def list_ordenes_disponibles(session: AsyncSession = Depends(get_session)):
+    result = await session.scalars(
+        select(OrdenFabricacion).where(OrdenFabricacion.estado == "aprobada")
+    )
+    return {"data": [o.model_dump() for o in result.all()]}
 
 
 @router.post("/pedidos-material")
-async def create_pedido_material(payload: PedidoMaterialCreate):
-    global pedido_counter
-    verificar_of_aprobada(payload.of_id)
+async def create_pedido_material(
+    payload: PedidoMaterialCreate,
+    session: AsyncSession = Depends(get_session),
+):
+    await verificar_of_aprobada(payload.of_id, session)
 
-    pedido_counter += 1
-    pedido = {
-        "id": pedido_counter,
-        "of_id": payload.of_id,
-        "emisor": payload.emisor,
-        "fecha": payload.fecha,
-        "plazo_entrega": payload.plazo_entrega,
-        "equipo": payload.equipo,
-        "items": [item.model_dump() for item in payload.items],
-        "estado": "generado",
-    }
-    pedidos_db[pedido_counter] = pedido
-    return {"message": "Pedido de materiales generado", "data": pedido}
+    pedido = PedidoMaterial(
+        of_id=payload.of_id,
+        emisor=payload.emisor,
+        fecha=payload.fecha,
+        plazo_entrega=payload.plazo_entrega,
+        equipo=payload.equipo,
+        estado="generado",
+    )
+    session.add(pedido)
+    await session.flush()
+
+    for item in payload.items:
+        session.add(PedidoMaterialItem(pedido_id=pedido.id, **item.model_dump()))
+
+    await session.commit()
+
+    result = await session.scalars(
+        select(PedidoMaterial)
+        .where(PedidoMaterial.id == pedido.id)
+        .options(selectinload(PedidoMaterial.items))
+    )
+    pedido = result.one()
+    return {"message": "Pedido de materiales generado", "data": _pedido_dump(pedido)}
 
 
 @router.get("/pedidos-material")
-async def list_pedidos():
-    return {"data": list(pedidos_db.values())}
+async def list_pedidos(session: AsyncSession = Depends(get_session)):
+    result = await session.scalars(
+        select(PedidoMaterial).options(selectinload(PedidoMaterial.items))
+    )
+    return {"data": [_pedido_dump(p) for p in result.all()]}
 
 
 @router.post("/planos")
@@ -87,9 +129,9 @@ async def create_plano(
     of_id: int = Form(...),
     descripcion: str = Form(...),
     archivo: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
 ):
-    global plano_counter
-    verificar_of_aprobada(of_id)
+    await verificar_of_aprobada(of_id, session)
 
     if archivo.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
@@ -99,22 +141,50 @@ async def create_plano(
 
     contenido = await archivo.read()
 
-    plano_counter += 1
-    plano = {
-        "id": plano_counter,
-        "of_id": of_id,
-        "descripcion": descripcion,
-        "archivo": {
-            "nombre": archivo.filename,
-            "tipo": archivo.content_type,
-            "tamanio_bytes": len(contenido),
+    plano = Plano(
+        of_id=of_id,
+        descripcion=descripcion,
+        archivo_nombre=archivo.filename or "",
+        archivo_tipo=archivo.content_type or "",
+        archivo_tamanio=len(contenido),
+        estado="enviado",
+    )
+    session.add(plano)
+    await session.commit()
+    await session.refresh(plano)
+
+    return {
+        "message": "Plano enviado a Producción",
+        "data": {
+            "id": plano.id,
+            "of_id": plano.of_id,
+            "descripcion": plano.descripcion,
+            "archivo": {
+                "nombre": plano.archivo_nombre,
+                "tipo": plano.archivo_tipo,
+                "tamanio_bytes": plano.archivo_tamanio,
+            },
+            "estado": plano.estado,
         },
-        "estado": "enviado",
     }
-    planos_db[plano_counter] = plano
-    return {"message": "Plano enviado a Producción", "data": plano}
 
 
 @router.get("/planos")
-async def list_planos():
-    return {"data": list(planos_db.values())}
+async def list_planos(session: AsyncSession = Depends(get_session)):
+    result = await session.scalars(select(Plano))
+    return {
+        "data": [
+            {
+                "id": p.id,
+                "of_id": p.of_id,
+                "descripcion": p.descripcion,
+                "archivo": {
+                    "nombre": p.archivo_nombre,
+                    "tipo": p.archivo_tipo,
+                    "tamanio_bytes": p.archivo_tamanio,
+                },
+                "estado": p.estado,
+            }
+            for p in result.all()
+        ]
+    }

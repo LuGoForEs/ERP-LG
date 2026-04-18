@@ -3,3 +3,17 @@ Tareas_Desarrollador_Track2.md
 __pycache__/
 .claude/
 *.pyc
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# PromptOps context snapshot
+.promptops/
+
+# PromptOps session assets
+.promptops-assets/

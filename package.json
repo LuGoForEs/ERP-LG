@@ -1,0 +1,23 @@
+{
+  "name": "Gonza-PC",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "./erp.sh up",
+    "stop": "./erp.sh down",
+    "restart": "./erp.sh restart",
+    "status": "./erp.sh status",
+    "logs:db": "./erp.sh logs database",
+    "logs:backend": "./erp.sh logs backend",
+    "logs:frontend": "./erp.sh logs frontend"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.26.2",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0"
+  }
+}

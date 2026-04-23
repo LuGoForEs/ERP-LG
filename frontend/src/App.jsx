@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import AdminPanel from './components/AdminPanel.jsx'
 import DesarrolloPanel from './components/DesarrolloPanel.jsx'
+import ComercialPanel from './components/ComercialPanel.jsx'
+import LetterGlitch from './components/LetterGlitch.jsx'
 
 const API_BASE = '/api/v1'
 
@@ -300,6 +302,14 @@ function App() {
 
   return (
     <div className="app">
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, opacity: 0.4, pointerEvents: 'none' }}>
+        <LetterGlitch
+          glitchSpeed={50}
+          centerVignette={true}
+          outerVignette={false}
+          smooth={true}
+        />
+      </div>
       <header className="header">
         <div>
           <h1>ERP Industrial</h1>
@@ -339,6 +349,12 @@ function App() {
           </div>
         ))}
       </section>
+
+      {activeModule === 'comercial' && (
+        <section className="tester-panel">
+          <ComercialPanel />
+        </section>
+      )}
 
       {activeModule === 'administracion' && (
         <section className="tester-panel">

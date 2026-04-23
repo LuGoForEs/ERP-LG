@@ -9,7 +9,7 @@ const ESTADO_COLORS = {
   enviado: '#06b6d4',
 }
 
-const EMPTY_ITEM = { cantidad: '', descripcion: '', uso_en: '', observaciones: '', oc_numero: '', oc_fecha: '' }
+const EMPTY_ITEM = { cantidad: '', unidad: 'u', descripcion: '', uso_en: '', observaciones: '', oc_fecha: '' }
 
 function today() {
   return new Date().toISOString().split('T')[0]
@@ -105,11 +105,11 @@ export default function DesarrolloPanel() {
     const items = pmItems
       .filter((item) => item.cantidad && item.descripcion.trim())
       .map((item) => ({
-        cantidad: parseInt(item.cantidad, 10),
+        cantidad: parseFloat(item.cantidad),
+        unidad: item.unidad,
         descripcion: item.descripcion,
         uso_en: item.uso_en,
         observaciones: item.observaciones,
-        oc_numero: item.oc_numero,
         oc_fecha: item.oc_fecha,
       }))
 
@@ -257,8 +257,7 @@ export default function DesarrolloPanel() {
                 <div className="pm-field">
                   <label>Plazo / Fecha entrega</label>
                   <input
-                    type="text"
-                    placeholder="Ej: 15 dias, 2026-05-01"
+                    type="date"
                     value={pmForm.plazo_entrega}
                     onChange={(e) => setPmForm({ ...pmForm, plazo_entrega: e.target.value })}
                   />
@@ -281,10 +280,10 @@ export default function DesarrolloPanel() {
                     <tr>
                       <th className="pm-th-num">#</th>
                       <th className="pm-th-cant">Cant.</th>
+                      <th className="pm-th-cant" style={{ width: '80px' }}>Unidad</th>
                       <th className="pm-th-desc">Descripcion</th>
                       <th className="pm-th-uso">Uso en</th>
                       <th className="pm-th-obs">Observaciones</th>
-                      <th className="pm-th-oc">OC Nro</th>
                       <th className="pm-th-ocf">OC Fecha</th>
                       <th className="pm-th-del"></th>
                     </tr>
@@ -296,11 +295,32 @@ export default function DesarrolloPanel() {
                         <td>
                           <input
                             type="number"
-                            min="1"
-                            placeholder="0"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="0.00"
                             value={item.cantidad}
                             onChange={(e) => updateItem(idx, 'cantidad', e.target.value)}
                           />
+                        </td>
+                        <td>
+                          <select 
+                            style={{ 
+                              width: '100%', 
+                              background: '#1e293b', // Fondo sólido para evitar invisibilidad en la lista
+                              border: '1px solid #334155', 
+                              color: '#e2e8f0',
+                              borderRadius: '0.25rem',
+                              padding: '0.25rem',
+                              fontSize: '0.8rem',
+                              cursor: 'pointer'
+                            }}
+                            value={item.unidad}
+                            onChange={(e) => updateItem(idx, 'unidad', e.target.value)}
+                          >
+                            <option value="u" style={{ background: '#1e293b' }}>u</option>
+                            <option value="m" style={{ background: '#1e293b' }}>m</option>
+                            <option value="kg" style={{ background: '#1e293b' }}>kg</option>
+                          </select>
                         </td>
                         <td>
                           <input
@@ -324,14 +344,6 @@ export default function DesarrolloPanel() {
                             placeholder="Notas"
                             value={item.observaciones}
                             onChange={(e) => updateItem(idx, 'observaciones', e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="text"
-                            placeholder="OC-001"
-                            value={item.oc_numero}
-                            onChange={(e) => updateItem(idx, 'oc_numero', e.target.value)}
                           />
                         </td>
                         <td>
@@ -454,11 +466,11 @@ export default function DesarrolloPanel() {
                             {p.items.map((item, idx) => (
                               <tr key={idx}>
                                 <td className="pm-cell-num">{idx + 1}</td>
-                                <td>{item.cantidad}</td>
+                                <td>{item.cantidad} {item.unidad}</td>
                                 <td>{item.descripcion}</td>
                                 <td>{item.uso_en || '-'}</td>
                                 <td>{item.observaciones || '-'}</td>
-                                <td>{item.oc_numero || '-'}</td>
+                                <td>{item.oc_id ? `OC-${item.oc_id}` : '-'}</td>
                                 <td>{item.oc_fecha || '-'}</td>
                               </tr>
                             ))}

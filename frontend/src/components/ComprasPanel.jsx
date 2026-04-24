@@ -420,7 +420,7 @@ export default function ComprasPanel() {
                         <button
                           type="button"
                           className="pm-row-del"
-                          onClick={() => removeRow(index)}
+                          onClick={() => removeMaterial(index)}
                           disabled={materiales.length <= 1}
                           title="Eliminar fila"
                         >

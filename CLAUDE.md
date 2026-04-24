@@ -19,7 +19,9 @@ backend/
     api/
       v1/
       ... (1 more files)
-    ... (2 more files)
+    db/
+      ... (2 more files)
+    ... (3 more files)
   docker-compose.yml
   ... (2 more files)
 database/
@@ -27,7 +29,7 @@ database/
 frontend/
   src/
     components/
-      ... (2 more files)
+      ... (3 more files)
     ... (3 more files)
   docker-compose.yml
   package.json

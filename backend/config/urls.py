@@ -9,12 +9,12 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     
-    # API endpoints (to be implemented)
+    # API endpoints
     path('api/v1/comercial/', include('comercial.urls')),
-    # path('api/v1/administracion/', include('administracion.urls')),
-    # path('api/v1/desarrollo/', include('desarrollo.urls')),
-    # path('api/v1/compras/', include('compras.urls')),
-    # path('api/v1/panol/', include('panol.urls')),
-    # path('api/v1/produccion/', include('produccion.urls')),
-    # path('api/v1/logistica/', include('logistica.urls')),
+    path('api/v1/administracion/', include('administracion.urls')),
+    path('api/v1/desarrollo/', include('desarrollo.urls')),
+    path('api/v1/compras/', include('compras.urls')),
+    path('api/v1/panol/', include('panol.urls')),
+    path('api/v1/produccion/', include('produccion.urls')),
+    path('api/v1/logistica/', include('logistica.urls')),
 ]

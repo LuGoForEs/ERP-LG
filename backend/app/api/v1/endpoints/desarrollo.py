@@ -12,7 +12,6 @@ router = APIRouter()
 
 class ItemPedidoMaterial(BaseModel):
     cantidad: float = Field(gt=0)
-    unidad: str = "u"
     descripcion: str
     uso_en: str = ""
     observaciones: str = ""

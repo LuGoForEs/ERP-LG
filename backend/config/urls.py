@@ -10,7 +10,7 @@ urlpatterns = [
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     
     # API endpoints (to be implemented)
-    # path('api/v1/comercial/', include('comercial.urls')),
+    path('api/v1/comercial/', include('comercial.urls')),
     # path('api/v1/administracion/', include('administracion.urls')),
     # path('api/v1/desarrollo/', include('desarrollo.urls')),
     # path('api/v1/compras/', include('compras.urls')),

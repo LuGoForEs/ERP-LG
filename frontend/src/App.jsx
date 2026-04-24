@@ -375,7 +375,7 @@ function App() {
         </section>
       )}
 
-      {activeModule && activeModule !== 'administracion' && activeModule !== 'desarrollo' && activeModule !== 'compras' && (
+      {activeModule && activeModule !== 'administracion' && activeModule !== 'desarrollo' && activeModule !== 'compras' && activeModule !== 'comercial' && (
         <section className="tester-panel">
           {MODULES.filter((m) => m.id === activeModule).map((mod) => (
             <div key={mod.id}>

@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  web:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -15,6 +15,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - erp-network
 
   db:
     image: postgres:16
@@ -31,6 +33,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - erp-network
 
 volumes:
   postgres_data:
+
+networks:
+  erp-network:
+    external: true

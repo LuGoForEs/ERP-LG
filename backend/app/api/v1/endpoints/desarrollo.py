@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.db.session import get_session
-from app.models import Anticipo, OrdenFabricacion, PedidoMaterial, PedidoMaterialItem, Plano
+from app.models import Anticipo, OrdenCompra, OrdenFabricacion, PedidoMaterial, PedidoMaterialItem, Plano
 
 router = APIRouter()
 
@@ -15,7 +15,6 @@ class ItemPedidoMaterial(BaseModel):
     descripcion: str
     uso_en: str = ""
     observaciones: str = ""
-    oc_numero: str = ""
     oc_fecha: str = ""
 
 
@@ -60,10 +59,11 @@ def _pedido_dump(pedido: PedidoMaterial) -> dict:
             {
                 "id": it.id,
                 "cantidad": it.cantidad,
+                "unidad": it.unidad,
                 "descripcion": it.descripcion,
                 "uso_en": it.uso_en,
                 "observaciones": it.observaciones,
-                "oc_numero": it.oc_numero,
+                "oc_id": it.oc_id,
                 "oc_fecha": it.oc_fecha,
             }
             for it in pedido.items
@@ -91,6 +91,7 @@ async def create_pedido_material(
 ):
     await verificar_of_aprobada(payload.of_id, session)
 
+    # 1. Crear el Pedido de Material
     pedido = PedidoMaterial(
         of_id=payload.of_id,
         emisor=payload.emisor,
@@ -100,20 +101,37 @@ async def create_pedido_material(
         estado="generado",
     )
     session.add(pedido)
-    await session.flush()
+    await session.flush() # Para tener el pedido.id
 
-    for item in payload.items:
-        session.add(PedidoMaterialItem(pedido_id=pedido.id, **item.model_dump()))
+    # 2. Generar la Orden de Compra (OC) correlativa para este pedido
+    # El ID de la OC será el número consecutivo global
+    oc = OrdenCompra(
+        of_id=payload.of_id,
+        pm_id=pedido.id,
+        estado="emitida"
+    )
+    session.add(oc)
+    await session.flush() # Para tener el oc.id (NRO de OC)
+
+    # 3. Crear los Items vinculados a la OC
+    for item_data in payload.items:
+        item = PedidoMaterialItem(
+            pedido_id=pedido.id,
+            oc_id=oc.id,
+            **item_data.model_dump()
+        )
+        session.add(item)
 
     await session.commit()
 
+    # Recargar con relaciones
     result = await session.scalars(
         select(PedidoMaterial)
         .where(PedidoMaterial.id == pedido.id)
         .options(selectinload(PedidoMaterial.items))
     )
     pedido = result.one()
-    return {"message": "Pedido de materiales generado", "data": _pedido_dump(pedido)}
+    return {"message": f"Pedido generado con éxito. OC NRO: {oc.id}", "data": _pedido_dump(pedido)}
 
 
 @router.get("/pedidos-material")

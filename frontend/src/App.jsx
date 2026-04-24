@@ -301,6 +301,14 @@ function App() {
 
   return (
     <div className="app">
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, opacity: 0.4, pointerEvents: 'none' }}>
+        <LetterGlitch
+          glitchSpeed={50}
+          centerVignette={true}
+          outerVignette={false}
+          smooth={true}
+        />
+      </div>
       <header className="header">
         <div>
           <h1>ERP Industrial</h1>
@@ -340,6 +348,12 @@ function App() {
           </div>
         ))}
       </section>
+
+      {activeModule === 'comercial' && (
+        <section className="tester-panel">
+          <ComercialPanel />
+        </section>
+      )}
 
       {activeModule === 'administracion' && (
         <section className="tester-panel">

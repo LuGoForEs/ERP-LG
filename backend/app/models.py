@@ -28,6 +28,8 @@ class OrdenFabricacion(SQLModel, table=True):
     descripcion: str = ""
     plazo_entrega: str = ""
     monto_anticipo: float = 0.0
+    moneda_anticipo: str = "ARS"
+    anticipo_descripcion: Optional[str] = None
     estado: str = "pendiente_anticipo"
     created_at: datetime = Field(**_CREATED)
     updated_at: datetime = Field(**_UPDATED)
@@ -82,10 +84,21 @@ class PedidoMaterialItem(SQLModel, table=True):
     descripcion: str
     uso_en: str = ""
     observaciones: str = ""
-    oc_numero: str = ""
+    oc_id: Optional[int] = Field(default=None, foreign_key="ordenes_compra.id")
     oc_fecha: str = ""
 
     pedido: Optional[PedidoMaterial] = Relationship(back_populates="items")
+
+
+class OrdenCompra(SQLModel, table=True):
+    __tablename__ = "ordenes_compra"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    of_id: int = Field(foreign_key="ordenes_fabricacion.id", index=True)
+    pm_id: int = Field(foreign_key="pedidos_material.id", index=True)
+    estado: str = "emitida"
+    created_at: datetime = Field(**_CREATED)
+    updated_at: datetime = Field(**_UPDATED)
 
 
 class Plano(SQLModel, table=True):
@@ -169,8 +182,10 @@ class Ingreso(SQLModel, table=True):
 class Stock(SQLModel, table=True):
     __tablename__ = "stock"
 
-    nombre: str = Field(primary_key=True)
-    cantidad: int = 0
+    id: Optional[int] = Field(default=None, primary_key=True)
+    nombre: str
+    unidad: str = "u"
+    cantidad: float = 0.0
 
 
 class Movimiento(SQLModel, table=True):
@@ -194,7 +209,8 @@ class MovimientoItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     movimiento_id: int = Field(foreign_key="movimientos.id", index=True)
     nombre: str
-    cantidad: int
+    cantidad: float
+    unidad: str = "u"
 
     movimiento: Optional[Movimiento] = Relationship(back_populates="items")
 

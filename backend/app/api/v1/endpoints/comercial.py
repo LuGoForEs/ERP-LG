@@ -39,6 +39,8 @@ async def create_of(payload: dict, session: AsyncSession = Depends(get_session))
         descripcion=payload.get("descripcion", ""),
         plazo_entrega=payload.get("plazo_entrega", ""),
         monto_anticipo=float(payload.get("monto_anticipo") or 0),
+        moneda_anticipo=payload.get("moneda_anticipo", "ARS"),
+        anticipo_descripcion=payload.get("anticipo_descripcion"),
         estado="pendiente_anticipo",
     )
     session.add(orden)

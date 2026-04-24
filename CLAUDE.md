@@ -9,39 +9,40 @@ A detailed JSON project map is available at `.promptops/project-context.json` â€
 
 ## Project
 - **Name**: ERP-LG
-- **Framework**: fastapi (python)
-- **Domains**: database
+- **Framework**: django (python)
+- **Domains**: database, backend, frontend
 
 ## Directory Structure
 ```
 backend/
-  app/
-    api/
-      v1/
-      ... (1 more files)
-    db/
-      ... (2 more files)
-    ... (3 more files)
+  administracion/
+  comercial/
+  compras/
+  config/
+  desarrollo/
+  logistica/
+  panol/
+  produccion/
   docker-compose.yml
-  ... (2 more files)
+  Dockerfile.dev
+  manage.py
+  pytest.ini
+  requirements.txt
 database/
   docker-compose.yml
 frontend/
   src/
     components/
-      ... (3 more files)
-    ... (3 more files)
   docker-compose.yml
   package.json
   vite.config.js
-  ... (2 more files)
 tests/
   e2e/
-    ... (3 more files)
 CLAUDE.md
 package.json
 playwright.config.js
 README.md
+erp.sh
 ```
 
 <!-- /PROMPTOPS:CONTEXT -->

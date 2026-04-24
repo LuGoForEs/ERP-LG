@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import AdminPanel from './components/AdminPanel.jsx'
 import DesarrolloPanel from './components/DesarrolloPanel.jsx'
 import ComprasPanel from './components/ComprasPanel.jsx'
+import ComercialPanel from './components/ComercialPanel.jsx'
+import LetterGlitch from './components/LetterGlitch.jsx'
 
 const API_BASE = '/api/v1'
 
@@ -373,7 +375,7 @@ function App() {
         </section>
       )}
 
-      {activeModule && activeModule !== 'administracion' && activeModule !== 'desarrollo' && activeModule !== 'compras' && (
+      {activeModule && activeModule !== 'administracion' && activeModule !== 'desarrollo' && activeModule !== 'compras' && activeModule !== 'comercial' && (
         <section className="tester-panel">
           {MODULES.filter((m) => m.id === activeModule).map((mod) => (
             <div key={mod.id}>

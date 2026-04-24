@@ -24,11 +24,12 @@ Comercial → Desarrollo → Compras → Pañol → Producción → Logística
 Administración ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←┘
 ```
 
-## Stack tecnologico
+## Stack tecnologico (2026)
 
-- **Backend:** Python 3.11, FastAPI, SQLModel, Alembic
+- **Backend:** Python 3.12, Django 5.x, Django REST Framework (DRF)
 - **Frontend:** React 18, Vite 6
-- **Base de datos:** MariaDB 10.11
+- **Base de datos:** PostgreSQL 16 (psycopg v3)
+- **Testing:** Pytest, Factory-Boy (Backend) + Playwright (E2E)
 - **Infraestructura:** Docker, Docker Compose
 
 ## Estructura del proyecto
@@ -36,25 +37,19 @@ Administración ←←←←←←←←←←←←←←←←←←←←←�
 ```
 ERP-LG/
 ├── backend/
-│   ├── app/
-│   │   ├── main.py                  # Entrypoint FastAPI
-│   │   └── api/v1/endpoints/        # Routers por dominio
-│   │       ├── comercial.py
-│   │       ├── administracion.py
-│   │       ├── desarrollo.py
-│   │       ├── compras.py
-│   │       ├── panol.py
-│   │       ├── produccion.py
-│   │       └── logistica.py
+│   ├── config/                  # Proyecto principal Django (settings, urls)
+│   ├── comercial/               # App Django
+│   ├── administracion/          # App Django
+│   ├── desarrollo/              # App Django
+│   ├── compras/                 # App Django
+│   ├── panol/                   # App Django
+│   ├── produccion/              # App Django
+│   ├── logistica/               # App Django
 │   ├── requirements.txt
 │   ├── docker-compose.yml
 │   └── Dockerfile.dev
 ├── frontend/
 │   ├── src/
-│   │   ├── main.jsx
-│   │   ├── App.jsx
-│   │   └── components/
-│   │       └── AdminPanel.jsx
 │   ├── package.json
 │   ├── vite.config.js
 │   ├── docker-compose.yml
@@ -67,84 +62,57 @@ ERP-LG/
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
+- Node.js (solo para tests E2E vía Playwright)
 
-No se requiere Python, Node.js ni bases de datos instaladas localmente.
+No se requiere Python ni bases de datos instaladas localmente para levantar la app.
 
 ## Levantar el proyecto
 
-El proyecto está dividido en dos stacks de Docker Compose para aislar la base de datos de la aplicación.
+El proyecto se levanta con el script unificado `erp.sh` en la raíz del proyecto.
 
-**Paso 1: Levantar la base de datos (Red compartida)**
+**Levantar todo:**
 ```bash
-cd database
-docker compose up -d
+./erp.sh up
 ```
 
-**Paso 2: Levantar el Backend**
+**Chequear estado de los contenedores:**
 ```bash
-cd ../backend
-docker compose up --build -d
+./erp.sh status
 ```
 
-**Paso 3: Levantar el Frontend**
+**Bajar los servicios:**
 ```bash
-cd ../frontend
-docker compose up --build -d
+./erp.sh down
 ```
 
 | Servicio | URL |
 |----------|-----|
 | Backend API | http://localhost:8000 |
-| Docs (Swagger) | http://localhost:8000/docs |
+| Docs (Swagger) | http://localhost:8000/api/schema/swagger-ui/ |
 | Frontend | http://localhost:5173 |
-| MariaDB | localhost:3306 |
+| PostgreSQL | localhost:5432 |
 
-## Endpoints principales
+## Tests
 
-### Comercial
-- `POST /api/v1/comercial/ordenes-fabricacion` - Crear Orden de Fabricacion
-- `GET /api/v1/comercial/ordenes-fabricacion` - Listar ordenes
-- `GET /api/v1/comercial/ordenes-fabricacion/{id}` - Detalle de OF
-- `GET /api/v1/comercial/anticipos` - Listar anticipos
+El backend cuenta con tests unitarios y de integración usando `pytest`.
 
-### Administracion
-- `PUT /api/v1/administracion/anticipos/{id}/validar` - Validar anticipo
-- `PUT /api/v1/administracion/despachos/{id}/aprobar` - Aprobar despacho
+```bash
+# Correr tests del backend
+cd backend
+docker-compose run --rm web pytest -v
+```
 
-### Desarrollo
-- `POST /api/v1/desarrollo/pedidos-material` - Generar pedido de materiales
-- `POST /api/v1/desarrollo/planos` - Enviar planos a produccion
+El frontend y la integración del sistema cuentan con tests e2e usando `Playwright`.
 
-### Compras
-- `POST /api/v1/compras/facturas` - Registrar compra de materiales
-
-### Panol
-- `POST /api/v1/panol/ingresos` - Registrar ingreso de materiales
-- `POST /api/v1/panol/movimientos/produccion` - Despachar stock a produccion
-
-### Produccion
-- `POST /api/v1/produccion/lotes-terminados` - Registrar lote terminado
-
-### Logistica
-- `POST /api/v1/logistica/despachos/{id}/solicitar-autorizacion` - Solicitar autorizacion
-- `POST /api/v1/logistica/despachos/{id}/ejecutar` - Ejecutar despacho
-
-## Organizacion del equipo
-
-El desarrollo se divide en entornos aislados y ramas específicas para agilizar el trabajo en paralelo:
-
-- **Ramas de Desarrollo:**
-  - `dev-db`: Para la configuración, schemas y actualizaciones de base de datos.
-  - `dev-backend`: Para la API, modelos de negocio (DDD), reglas y seguridad.
-  - `dev-frontend`: Para la interfaz de usuario, componentes de React y estilos.
-
-- **Tracks de Trabajo:**
-  - **Track 1 (Dominio y Negocio):** Modelos, schemas Pydantic, validaciones de negocio y maquinas de estado.
-  - **Track 2 (Infraestructura y Seguridad):** Docker, JWT/RBAC, wrappers REST, audit trail y persistencia.
+```bash
+# Instalar dependencias e2e y correr tests
+pnpm install
+npx playwright test
+```
 
 ## Seguridad (planificado)
 
-- Autenticacion con JWT
+- Autenticacion con JWT (SimpleJWT)
 - Autorizacion por roles (RBAC) basada en dominios
 - Audit trail con trazabilidad de cambios
 

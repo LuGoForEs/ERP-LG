@@ -1,5 +1,4 @@
-Documentacion_Completa_ERP.md
-Tareas_Desarrollador_Track2.md
+*.md
 __pycache__/
 .claude/
 *.pyc
@@ -11,9 +10,12 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+/test/
 
 # PromptOps context snapshot
 .promptops/
 
 # PromptOps session assets
 .promptops-assets/
+
+/ClasesDeProgramacion

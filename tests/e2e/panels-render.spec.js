@@ -10,7 +10,7 @@ test.describe('UI Integration & Panels Rendering', () => {
     // Click on the Administracion module
     await page.locator('.status-card', { hasText: 'Administracion' }).click();
     await expect(page.locator('.tester-panel')).toBeVisible();
-    await expect(page.locator('.tester-panel h2', { hasText: 'Administracion' })).toBeVisible();
+    await expect(page.locator('.tester-panel h3', { hasText: 'Ordenes Pendientes' })).toBeVisible();
     
     // Deselect Administracion
     await page.locator('.status-card', { hasText: 'Administracion' }).click();
@@ -19,9 +19,6 @@ test.describe('UI Integration & Panels Rendering', () => {
     // Click on the Comercial module
     await page.locator('.status-card', { hasText: 'Comercial' }).click();
     await expect(page.locator('.tester-panel')).toBeVisible();
-    await expect(page.locator('.tester-panel h2', { hasText: 'Comercial' })).toBeVisible();
-
-    // Verify a known endpoint from the Comercial module renders correctly
-    await expect(page.locator('h3', { hasText: 'Crear Orden de Fabricacion' })).toBeVisible();
+    await expect(page.locator('.tester-panel h3', { hasText: 'Nueva Orden de Fabricación' })).toBeVisible();
   });
 });

@@ -78,7 +78,7 @@ class PedidoMaterialItem(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     pedido_id: int = Field(foreign_key="pedidos_material.id", index=True)
-    cantidad: int
+    cantidad: float
     descripcion: str
     uso_en: str = ""
     observaciones: str = ""
@@ -104,12 +104,30 @@ class Plano(SQLModel, table=True):
 
 # --- Compras -----------------------------------------------------------------
 
+class Proveedor(SQLModel, table=True):
+    __tablename__ = "proveedores"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    nombre: str = Field(index=True, unique=True)
+    created_at: datetime = Field(**_CREATED)
+    updated_at: datetime = Field(**_UPDATED)
+
+
+class Insumo(SQLModel, table=True):
+    __tablename__ = "insumos"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    nombre: str = Field(index=True, unique=True)
+    created_at: datetime = Field(**_CREATED)
+    updated_at: datetime = Field(**_UPDATED)
+
+
 class FacturaCompra(SQLModel, table=True):
     __tablename__ = "facturas_compra"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     pedido_material_id: int = Field(foreign_key="pedidos_material.id", index=True)
-    proveedor: str
+    proveedor: str = ""
     monto_total: float = 0.0
     estado: str = "registrada"
     created_at: datetime = Field(**_CREATED)
@@ -127,8 +145,10 @@ class MaterialCompra(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     factura_id: int = Field(foreign_key="facturas_compra.id", index=True)
     nombre: str
-    cantidad: int
+    cantidad: float
     precio_unitario: float
+    unidad_medida: str = "unidades"
+    proveedor: str = ""
 
     factura: Optional[FacturaCompra] = Relationship(back_populates="materiales")
 

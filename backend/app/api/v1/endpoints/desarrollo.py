@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 class ItemPedidoMaterial(BaseModel):
-    cantidad: int = Field(gt=0)
+    cantidad: float = Field(gt=0)
     descripcion: str
     uso_en: str = ""
     observaciones: str = ""

@@ -1,3 +1,49 @@
 from django.db import models
 
-# Create your models here.
+class PedidoMaterial(models.Model):
+    of_id = models.ForeignKey('comercial.OrdenFabricacion', on_delete=models.CASCADE, db_column='of_id')
+    emisor = models.CharField(max_length=255)
+    fecha = models.CharField(max_length=50) # kept as string for compatibility
+    plazo_entrega = models.CharField(max_length=255, blank=True, default="")
+    equipo = models.CharField(max_length=255, blank=True, default="")
+    estado = models.CharField(max_length=50, default="generado")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "pedidos_material"
+
+class OrdenCompra(models.Model):
+    of_id = models.ForeignKey('comercial.OrdenFabricacion', on_delete=models.CASCADE, db_column='of_id')
+    pm_id = models.ForeignKey('PedidoMaterial', on_delete=models.CASCADE, db_column='pm_id')
+    estado = models.CharField(max_length=50, default="emitida")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ordenes_compra"
+
+class PedidoMaterialItem(models.Model):
+    pedido_id = models.ForeignKey('PedidoMaterial', on_delete=models.CASCADE, related_name='items', db_column='pedido_id')
+    cantidad = models.FloatField()
+    descripcion = models.TextField()
+    uso_en = models.CharField(max_length=255, blank=True, default="")
+    observaciones = models.TextField(blank=True, default="")
+    oc_id = models.ForeignKey('OrdenCompra', null=True, blank=True, on_delete=models.SET_NULL, db_column='oc_id')
+    oc_fecha = models.CharField(max_length=50, blank=True, default="")
+
+    class Meta:
+        db_table = "pedidos_material_items"
+
+class Plano(models.Model):
+    of_id = models.ForeignKey('comercial.OrdenFabricacion', on_delete=models.CASCADE, db_column='of_id')
+    descripcion = models.TextField()
+    archivo_nombre = models.CharField(max_length=255)
+    archivo_tipo = models.CharField(max_length=100)
+    archivo_tamanio = models.IntegerField()
+    estado = models.CharField(max_length=50, default="enviado")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "planos"

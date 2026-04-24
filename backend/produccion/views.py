@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from drf_spectacular.utils import extend_schema
 from .models import Lote
 from desarrollo.models import Plano
 from panol.models import Movimiento
@@ -9,6 +10,7 @@ from .serializers import LoteSerializer
 
 class ProduccionViewSet(viewsets.ViewSet):
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=False, methods=['post'], url_path='lotes-terminados')
     def finalizar_lote(self, request):
         of_id = request.data.get('of_id')
@@ -35,6 +37,7 @@ class ProduccionViewSet(viewsets.ViewSet):
             "data": LoteSerializer(lote).data
         })
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='lotes-terminados')
     def list_lotes(self, request):
         lotes = Lote.objects.all()

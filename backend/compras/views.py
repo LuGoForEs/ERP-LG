@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError, NotFound
+from drf_spectacular.utils import extend_schema
 from .models import Proveedor, Insumo, FacturaCompra, MaterialCompra
 from desarrollo.models import PedidoMaterial
 from .serializers import ProveedorSerializer, InsumoSerializer, FacturaCompraSerializer
@@ -10,16 +11,19 @@ from django.db import transaction
 
 class ComprasViewSet(viewsets.ViewSet):
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='pedidos-material')
     def list_pedidos_pendientes(self, request):
         pedidos = PedidoMaterial.objects.filter(estado="generado")
         return Response({"data": PedidoMaterialSerializer(pedidos, many=True).data})
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=False, methods=['post'], url_path='proveedores')
     def create_proveedor(self, request):
         proveedor = Proveedor.objects.create(nombre=request.data.get('nombre'))
         return Response({"message": "Proveedor creado", "data": {"id": proveedor.id, "nombre": proveedor.nombre}})
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='proveedores')
     def list_proveedores(self, request):
         q = request.query_params.get('q')
@@ -28,11 +32,13 @@ class ComprasViewSet(viewsets.ViewSet):
             queryset = queryset.filter(nombre__icontains=q)
         return Response({"data": ProveedorSerializer(queryset, many=True).data})
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=False, methods=['post'], url_path='insumos')
     def create_insumo(self, request):
         insumo = Insumo.objects.create(nombre=request.data.get('nombre'))
         return Response({"message": "Insumo creado", "data": {"id": insumo.id, "nombre": insumo.nombre}})
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='insumos')
     def list_insumos(self, request):
         q = request.query_params.get('q')
@@ -41,6 +47,7 @@ class ComprasViewSet(viewsets.ViewSet):
             queryset = queryset.filter(nombre__icontains=q)
         return Response({"data": InsumoSerializer(queryset, many=True).data})
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=False, methods=['post'], url_path='facturas')
     @transaction.atomic
     def registrar_factura(self, request):
@@ -98,6 +105,7 @@ class ComprasViewSet(viewsets.ViewSet):
             "data": FacturaCompraSerializer(factura).data
         })
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='facturas')
     def list_facturas(self, request):
         facturas = FacturaCompra.objects.all()

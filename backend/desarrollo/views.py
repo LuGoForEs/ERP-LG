@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError, NotFound, PermissionDenied
+from drf_spectacular.utils import extend_schema
 from .models import PedidoMaterial, OrdenCompra, PedidoMaterialItem, Plano
 from comercial.models import OrdenFabricacion, Anticipo
 from .serializers import PedidoMaterialSerializer, OrdenFabricacionSerializer, PlanoSerializer
@@ -23,12 +24,14 @@ def verificar_of_aprobada(of_id: int):
 
 class DesarrolloViewSet(viewsets.ViewSet):
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='ordenes-disponibles')
     def ordenes_disponibles(self, request):
         ordenes = OrdenFabricacion.objects.filter(estado="aprobada")
         serializer = OrdenFabricacionSerializer(ordenes, many=True)
         return Response({"data": serializer.data})
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=False, methods=['post'], url_path='pedidos-material')
     @transaction.atomic
     def create_pedido_material(self, request):
@@ -68,11 +71,13 @@ class DesarrolloViewSet(viewsets.ViewSet):
             "data": PedidoMaterialSerializer(pedido).data
         })
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='pedidos-material')
     def list_pedidos_material(self, request):
         pedidos = PedidoMaterial.objects.all()
         return Response({"data": PedidoMaterialSerializer(pedidos, many=True).data})
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=False, methods=['post'], url_path='planos')
     def create_plano(self, request):
         of_id = request.data.get('of_id')
@@ -113,6 +118,7 @@ class DesarrolloViewSet(viewsets.ViewSet):
             }
         })
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='planos')
     def list_planos(self, request):
         planos = Plano.objects.all()

@@ -2,12 +2,14 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError, NotFound
+from drf_spectacular.utils import extend_schema
 from .models import Despacho
 from produccion.models import Lote
 from .serializers import DespachoSerializer
 
 class LogisticaViewSet(viewsets.ViewSet):
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=False, methods=['post'], url_path='despachos')
     def create_despacho(self, request):
         lote_id = request.data.get('lote_id')
@@ -32,11 +34,13 @@ class LogisticaViewSet(viewsets.ViewSet):
 
         return Response({"message": "Despacho creado", "data": DespachoSerializer(despacho).data})
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='despachos')
     def list_despachos(self, request):
         despachos = Despacho.objects.all()
         return Response({"data": DespachoSerializer(despachos, many=True).data})
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=True, methods=['post'], url_path='solicitar-autorizacion')
     def solicitar_autorizacion(self, request, pk=None):
         try:
@@ -55,6 +59,7 @@ class LogisticaViewSet(viewsets.ViewSet):
             "data": DespachoSerializer(despacho).data,
         })
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=True, methods=['post'], url_path='ejecutar')
     def ejecutar_despacho(self, request, pk=None):
         try:

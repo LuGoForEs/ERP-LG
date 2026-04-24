@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError, NotFound
+from drf_spectacular.utils import extend_schema
 from .models import Stock, Ingreso, Movimiento, MovimientoItem
 from compras.models import FacturaCompra
 from .serializers import IngresoSerializer, MovimientoSerializer
@@ -15,11 +16,13 @@ def _ajustar_stock(nombre: str, delta: float):
 
 class PanolViewSet(viewsets.ViewSet):
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'])
     def stock(self, request):
         stocks = Stock.objects.all()
         return Response({"data": {s.nombre: s.cantidad for s in stocks}})
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=False, methods=['post'], url_path='ingresos')
     @transaction.atomic
     def registrar_ingreso(self, request):
@@ -66,6 +69,7 @@ class PanolViewSet(viewsets.ViewSet):
             }
         })
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='ingresos')
     def list_ingresos(self, request):
         ingresos = Ingreso.objects.all()
@@ -81,6 +85,7 @@ class PanolViewSet(viewsets.ViewSet):
             ]
         })
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=False, methods=['post'], url_path='movimientos/produccion')
     @transaction.atomic
     def despachar_a_produccion(self, request):
@@ -136,6 +141,7 @@ class PanolViewSet(viewsets.ViewSet):
             }
         })
 
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='movimientos')
     def list_movimientos(self, request):
         movimientos = Movimiento.objects.all()

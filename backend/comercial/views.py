@@ -16,6 +16,8 @@ def _fue_modificado(created, updated) -> bool:
         return False
     return (updated - created) > timedelta(seconds=1)
 
+from drf_spectacular.utils import extend_schema
+
 class OrdenFabricacionViewSet(viewsets.ModelViewSet):
     queryset = OrdenFabricacion.objects.all()
     serializer_class = OrdenFabricacionSerializer
@@ -61,6 +63,7 @@ class OrdenFabricacionViewSet(viewsets.ModelViewSet):
             }
         }, status=status.HTTP_201_CREATED)
 
+    @extend_schema(responses={200: dict})
     @action(detail=True, methods=['get'])
     def timeline(self, request, pk=None):
         orden = self.get_object()

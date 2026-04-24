@@ -2,12 +2,14 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from drf_spectacular.utils import extend_schema
 from comercial.models import OrdenFabricacion, Anticipo
 from logistica.models import Despacho
 from .serializers import AnticipoSerializer, OrdenFabricacionSerializer, DespachoSerializer
 
 class AdministracionViewSet(viewsets.ViewSet):
     
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='ordenes')
     def list_ordenes(self, request):
         ordenes = OrdenFabricacion.objects.all()
@@ -22,6 +24,7 @@ class AdministracionViewSet(viewsets.ViewSet):
             })
         return Response({"data": result})
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=True, methods=['put'], url_path='validar')
     def validar_anticipo(self, request, pk=None):
         try:
@@ -64,6 +67,7 @@ class AdministracionViewSet(viewsets.ViewSet):
             }
         })
 
+    @extend_schema(request=None, responses={200: dict})
     @action(detail=True, methods=['put'], url_path='aprobar')
     def aprobar_despacho(self, request, pk=None):
         try:

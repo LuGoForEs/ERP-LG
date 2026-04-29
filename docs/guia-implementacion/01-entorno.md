@@ -132,9 +132,9 @@ up() {
 
 **Por qué el orden importa:**
 
-El backend necesita que la base de datos esté disponible antes de arrancar. Django intenta conectarse a PostgreSQL durante el startup (`check` de `DATABASE_URL`). Si la base de datos no responde, el proceso Django termina con error de conexión.
+El backend necesita que la base de datos esté disponible antes de arrancar. Django intenta conectarse a MariaDB durante el startup (`check` de `DATABASE_URL`). Si la base de datos no responde, el proceso Django termina con error de conexión.
 
-La función `wait_db_healthy` resuelve esto con un polling de 120 segundos sobre el healthcheck del contenedor PostgreSQL:
+La función `wait_db_healthy` resuelve esto con un polling de 120 segundos sobre el healthcheck del contenedor MariaDB:
 
 ```bash
 wait_db_healthy() {
@@ -146,7 +146,7 @@ wait_db_healthy() {
 }
 ```
 
-PostgreSQL declara su healthcheck como `healthy` cuando `pg_isready` responde exitosamente. El frontend no tiene esta dependencia — puede levantarse en paralelo con el backend, pero se levanta último por convención de orden de lectura del script.
+MariaDB declara su healthcheck como `healthy` cuando su proceso interno responde exitosamente. El frontend no tiene esta dependencia — puede levantarse en paralelo con el backend, pero se levanta último por convención de orden de lectura del script.
 
 ### Detección automática de Docker
 
@@ -382,8 +382,9 @@ docker compose -f backend/docker-compose.yml exec backend python manage.py spect
 | Problema | Causa | Solución |
 |----------|-------|---------|
 | `./erp.sh: Permission denied` | Script sin permisos de ejecución | `chmod +x erp.sh` |
-| Backend no arranca, error de conexión a DB | PostgreSQL no terminó de inicializarse | `./erp.sh restart` — el script espera el healthcheck |
+| Backend no arranca, error de conexión a DB | MariaDB no terminó de inicializarse | `./erp.sh restart` — el script espera el healthcheck |
 | `ONLINE` no aparece en ningún módulo | Backend no respondió a tiempo | Esperar 10s y presionar Refresh en el dashboard |
 | `makemigrations` pide input interactivo | Campo no-nullable sin default en tabla con datos | Agregar `null=True` temporalmente al campo nuevo, generar migración, luego escribir migración de datos (`RunPython`) para poblar el FK |
 | Módulo muestra `OFFLINE` en el dashboard | El endpoint `GET /api/v1/<modulo>/` devuelve HTML en vez de JSON | Verificar que `urls.py` del módulo tiene `path('', module_status)` registrado |
-| `psycopg.OperationalError` al arrancar | Volumen de PostgreSQL corrupto | `docker compose -f backend/docker-compose.yml down -v && ./erp.sh up` (destruye datos locales) |
+| `django.db.utils.OperationalError` al arrancar | Volumen de MariaDB corrupto | `docker compose -f database/docker-compose.yml down -v && ./erp.sh up` (destruye datos locales) |
+ |

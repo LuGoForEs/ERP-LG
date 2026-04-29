@@ -20,11 +20,11 @@ Para que los contenedores en diferentes stacks puedan comunicarse (ej. el backen
 El script de orquestación (`erp.sh`) se asegura de crear esta red si no existe antes de levantar los contenedores.
 
 ### 6.1.3 Healthchecks
-* **PostgreSQL:** Usa `pg_isready -U postgres` para confirmar que el motor está aceptando conexiones reales.
-* **Orquestador (`erp.sh`):** Implementa un bucle de polling (`while ! nc -z localhost 5432`) que pausa el inicio del backend hasta que el puerto de la base de datos responda, previniendo errores de "Connection Refused" en Django.
+* **MariaDB:** Usa `healthcheck.sh --connect --innodb_initialized` configurado en el contenedor para confirmar que el motor está aceptando conexiones reales.
+* **Orquestador (`erp.sh`):** Implementa un script que consulta el estado del contenedor `db` mediante `docker inspect` hasta que el estado cambia a `healthy`, previniendo errores de "Connection Refused" en Django.
 
 ### 6.1.4 Deuda Técnica Documentada
-En el código fuente actual, el archivo `database/docker-compose.yml` expone un contenedor basado en **MariaDB**, mientras que la configuración de Django apunta a **PostgreSQL** mediante `psycopg2`. Esto es una inconsistencia heredada de un template anterior. **Requiere corrección urgente** para unificar el motor de base de datos.
+Anteriormente existía una inconsistencia arquitectónica donde Django intentaba conectarse a PostgreSQL mediante `psycopg2` mientras que Docker definía MariaDB. Esta deuda técnica **ha sido resuelta**, unificando todo el entorno bajo **MariaDB** (`mysqlclient`).
 
 ---
 

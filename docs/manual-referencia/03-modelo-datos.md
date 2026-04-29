@@ -93,7 +93,7 @@ Para no romper contratos existentes con el frontend y otras partes del código t
 
 ### 3. `JSONField` vs `ManyToManyField`
 El uso de `JSONField` para relacionar entidades (ej. `Lote.planos_asociados` conteniendo `[1, 2, 3]`) es un antipatrón relacional porque impide usar restricciones de integridad referencial (FK constraints) y dificulta consultas inversas. 
-* **Caso Lote:** Se identificó como un antipatrón. Las relaciones N:M verdaderas deben gestionarse con `models.ManyToManyField` para que la base de datos (PostgreSQL) maneje la integridad a nivel de motor.
+* **Caso Lote:** Se identificó como un antipatrón. Las relaciones N:M verdaderas deben gestionarse con `models.ManyToManyField` para que la base de datos (MariaDB) maneje la integridad a nivel de motor.
 
 ### 4. `OneToOneField` vs `ForeignKey`
 Se aplicó una decisión estricta de cardinalidad en el modelo `Stock`.

@@ -292,7 +292,7 @@ def registrar_factura(self, request):
 
 ## 2.7 Sincronismo y el Modelo Request-Response
 
-Django utiliza un modelo de ejecución **síncrono**: cada request HTTP ocupa un thread del worker de Gunicorn durante toda su duración. Cuando el worker ejecuta una query a PostgreSQL, el thread queda bloqueado esperando la respuesta.
+Django utiliza un modelo de ejecución **síncrono**: cada request HTTP ocupa un thread del worker de Gunicorn durante toda su duración. Cuando el worker ejecuta una query a MariaDB, el thread queda bloqueado esperando la respuesta.
 
 ### Implicancias
 

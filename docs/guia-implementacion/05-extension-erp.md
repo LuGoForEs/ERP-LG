@@ -60,7 +60,7 @@ path('api/rrhh/', include('recursos_humanos.urls')),
 ```
 
 ### 6. Migrar Base de Datos
-Generar y aplicar la migración para materializar la nueva tabla en PostgreSQL.
+Generar y aplicar la migración para materializar la nueva tabla en MariaDB.
 ```bash
 docker exec -it erp-backend python manage.py makemigrations recursos_humanos
 docker exec -it erp-backend python manage.py migrate

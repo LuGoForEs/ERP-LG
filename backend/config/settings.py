@@ -79,12 +79,15 @@ WSGI_APPLICATION = 'config.wsgi.application'
 db_url = urlparse(config('DATABASE_URL'))
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': db_url.path[1:],
         'USER': db_url.username,
         'PASSWORD': db_url.password,
         'HOST': db_url.hostname,
         'PORT': db_url.port,
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        }
     }
 }
 

@@ -167,21 +167,17 @@ La diferencia de throughput (async vs sync) es irrelevante en un sistema con ~10
 
 ---
 
-### Decisión 3: PostgreSQL sobre MySQL / SQLite
+### Decisión 3: MariaDB sobre SQLite
 
-| Criterio | SQLite | MySQL/MariaDB | PostgreSQL |
-|----------|--------|---------------|-----------|
-| ACID compliant | Parcial | Sí (InnoDB) | Sí |
-| JSONField nativo | No | Parcial | Sí |
-| ManyToMany eficiente | Sí | Sí | Sí |
-| Soporte Django | Total | Total | Total |
-| `pg_isready` healthcheck | No | No | Sí |
-| Producción-grade | No | Sí | Sí |
-| Tipos avanzados (ARRAY, JSONB) | No | No | Sí |
+| Criterio | SQLite | MariaDB |
+|----------|--------|---------|
+| ACID compliant | Parcial | Sí (InnoDB) |
+| JSONField nativo | No | Sí (via longtext) |
+| ManyToMany eficiente | Sí | Sí |
+| Soporte Django | Total | Total |
+| Producción-grade | No | Sí |
 
-PostgreSQL 16 fue elegido por ser el motor relacional más completo con soporte nativo en Django y por ser el estándar de facto en aplicaciones Python de producción. SQLite fue descartado por sus limitaciones en escrituras concurrentes. MySQL/MariaDB fue descartado porque PostgreSQL provee mejor soporte para `JSONField` (usado en `Ingreso.snapshot`) y `ManyToManyField` (usado en `Lote.planos`, `Lote.movimientos`).
-
-> **Nota:** El archivo `database/docker-compose.yml` referencia MariaDB como artefacto de la arquitectura original (FastAPI + MySQL). Es deuda técnica documentada — el backend corre exclusivamente con PostgreSQL en `backend/docker-compose.yml`.
+MariaDB 10.11 fue elegido por ser un motor relacional robusto con soporte nativo en Django y por ser un estándar abierto de facto en aplicaciones de producción. SQLite fue descartado por sus limitaciones en escrituras concurrentes. Anteriormente el sistema utilizaba PostgreSQL, pero se ha unificado la infraestructura a MariaDB para simplificar el stack y corregir deuda técnica.
 
 ---
 
@@ -251,3 +247,15 @@ Conventional Commits obligatorios:
 - Formato de respuesta exitosa: `{"data": {...}}` o `{"message": "...", "data": {...}}`
 - Formato de error: respuesta estándar de DRF `{"detail": "..."}` o `{"field": ["error"]}`
 - Sin versión en URL de modelos internos (solo en la API pública)
+ga funcionalidad ni corrige bug |
+| `chore` | Mantenimiento (dependencias, migraciones, configuración) |
+| `docs` | Documentación |
+| `test` | Tests |
+
+### API REST
+
+- Base path: `/api/v1/`
+- Formato de respuesta exitosa: `{"data": {...}}` o `{"message": "...", "data": {...}}`
+- Formato de error: respuesta estándar de DRF `{"detail": "..."}` o `{"field": ["error"]}`
+- Sin versión en URL de modelos internos (solo en la API pública)
+)

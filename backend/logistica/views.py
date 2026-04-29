@@ -23,7 +23,6 @@ class LogisticaViewSet(viewsets.ViewSet):
 
         despacho = Despacho.objects.create(
             lote_id=lote,
-            of_id_id=lote.of_id_id,
             destino=request.data.get('destino', ''),
             transportista=request.data.get('transportista', ''),
             estado="pendiente"

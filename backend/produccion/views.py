@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -7,6 +7,7 @@ from .models import Lote
 from desarrollo.models import Plano
 from panol.models import Movimiento
 from .serializers import LoteSerializer
+
 
 class ProduccionViewSet(viewsets.ViewSet):
 
@@ -24,13 +25,9 @@ class ProduccionViewSet(viewsets.ViewSet):
         if not movimientos_of.exists():
             raise ValidationError(f"No hay materiales despachados para la OF {of_id}. Pañol debe despacharlos primero.")
 
-        lote = Lote.objects.create(
-            of_id_id=of_id,
-            descripcion=descripcion,
-            planos_asociados=[p.id for p in planos_of],
-            movimientos_asociados=[m.id for m in movimientos_of],
-            estado="terminado"
-        )
+        lote = Lote.objects.create(of_id_id=of_id, descripcion=descripcion, estado="terminado")
+        lote.planos.set(planos_of)
+        lote.movimientos.set(movimientos_of)
 
         return Response({
             "message": "Lote finalizado y disponible para Logística",

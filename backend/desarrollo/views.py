@@ -49,7 +49,6 @@ class DesarrolloViewSet(viewsets.ViewSet):
         )
 
         oc = OrdenCompra.objects.create(
-            of_id_id=of_id,
             pm_id=pedido,
             estado="emitida"
         )

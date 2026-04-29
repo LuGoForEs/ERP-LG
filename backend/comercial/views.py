@@ -49,7 +49,6 @@ class OrdenFabricacionViewSet(viewsets.ModelViewSet):
 
         anticipo = Anticipo.objects.create(
             of_id=orden,
-            cliente=orden.cliente,
             monto_estimado=orden.monto_anticipo,
             estado='pendiente',
             pagado=False

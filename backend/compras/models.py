@@ -49,7 +49,7 @@ class MaterialCompra(models.Model):
         'FacturaCompra', on_delete=models.CASCADE, related_name='materiales', db_column='factura_id'
     )
     insumo = models.ForeignKey(
-        'Insumo', on_delete=models.CASCADE, related_name='materiales_compra', db_column='insumo_id'
+        'Insumo', null=True, on_delete=models.CASCADE, related_name='materiales_compra', db_column='insumo_id'
     )
     cantidad = models.FloatField()
     precio_unitario = models.FloatField()

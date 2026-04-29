@@ -14,7 +14,7 @@ class Ingreso(models.Model):
 
 class Stock(models.Model):
     insumo = models.OneToOneField(
-        'compras.Insumo', on_delete=models.CASCADE,
+        'compras.Insumo', null=True, on_delete=models.CASCADE,
         related_name='stock_entry', db_column='insumo_id'
     )
     unidad = models.CharField(max_length=50, default="u")
@@ -41,7 +41,7 @@ class Movimiento(models.Model):
 class MovimientoItem(models.Model):
     movimiento_id = models.ForeignKey('Movimiento', on_delete=models.CASCADE, related_name='items', db_column='movimiento_id')
     insumo = models.ForeignKey(
-        'compras.Insumo', on_delete=models.CASCADE,
+        'compras.Insumo', null=True, on_delete=models.CASCADE,
         related_name='movimiento_items', db_column='insumo_id'
     )
     cantidad = models.FloatField()

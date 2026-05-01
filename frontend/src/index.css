@@ -1,0 +1,4 @@
+/* Tailwind directives are now in App.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

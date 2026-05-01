@@ -7,8 +7,25 @@ from comercial.models import OrdenFabricacion, Anticipo
 from logistica.models import Despacho
 from .serializers import AnticipoSerializer, OrdenFabricacionSerializer, DespachoSerializer
 
+from django.contrib.auth.models import User
+from django.db.models import Sum
+
 class AdministracionViewSet(viewsets.ViewSet):
     
+    @extend_schema(responses={200: dict})
+    @action(detail=False, methods=['get'], url_path='stats')
+    def get_stats(self, request):
+        active_users = User.objects.filter(is_active=True).count()
+        pending_of = OrdenFabricacion.objects.filter(estado='pendiente_anticipo').count()
+        total_anticipos = Anticipo.objects.filter(estado='validado').aggregate(Sum('monto_estimado'))['monto_estimado__sum'] or 0
+        
+        return Response({
+            "active_users": active_users,
+            "workload": pending_of,
+            "financial_total": total_anticipos,
+            "system_health": "stable"
+        })
+
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='ordenes')
     def list_ordenes(self, request):

@@ -3,307 +3,48 @@ import AdminPanel from './components/AdminPanel.jsx'
 import DesarrolloPanel from './components/DesarrolloPanel.jsx'
 import ComprasPanel from './components/ComprasPanel.jsx'
 import ComercialPanel from './components/ComercialPanel.jsx'
+import DashboardPanel from './components/DashboardPanel.jsx'
+import GenericModuleTester from './components/GenericModuleTester.jsx'
 import LetterGlitch from './components/LetterGlitch.jsx'
-
-const API_BASE = '/api/v1'
+import { 
+  LayoutGrid, 
+  Shield, 
+  ShoppingCart, 
+  Code, 
+  Package, 
+  Truck, 
+  Zap, 
+  Box, 
+  Activity,
+  Search,
+  Notifications,
+  HelpCircle,
+  Settings,
+  Menu,
+  LogOut,
+  User,
+  ExternalLink
+} from 'lucide-react'
 
 const MODULES = [
-  {
-    id: 'comercial',
-    name: 'Comercial',
-    color: '#3b82f6',
-    endpoints: [
-      {
-        method: 'POST',
-        path: '/comercial/ordenes-fabricacion',
-        label: 'Crear Orden de Fabricacion',
-        fields: [
-          { key: 'cliente', label: 'Cliente', placeholder: 'Ej: Aceros del Sur SA' },
-          { key: 'descripcion', label: 'Descripcion', placeholder: 'Ej: Tanque acero inoxidable 5000L' },
-          { key: 'plazo_entrega', label: 'Plazo de entrega', placeholder: 'Ej: 30 dias' },
-          { key: 'monto_anticipo', label: 'Monto Anticipo', placeholder: 'Ej: 500000' },
-        ],
-      },
-      {
-        method: 'GET',
-        path: '/comercial/ordenes-fabricacion',
-        label: 'Listar Ordenes de Fabricacion',
-        fields: [],
-      },
-      {
-        method: 'GET',
-        path: '/comercial/anticipos',
-        label: 'Listar Anticipos',
-        fields: [],
-      },
-    ],
-  },
-  {
-    id: 'administracion',
-    name: 'Administracion',
-    color: '#8b5cf6',
-    endpoints: [
-      {
-        method: 'GET',
-        path: '/administracion/anticipos/pendientes',
-        label: 'Ver Anticipos Pendientes',
-        fields: [],
-      },
-      {
-        method: 'PUT',
-        path: '/administracion/anticipos/{anticipo_id}/validar',
-        label: 'Validar Anticipo',
-        pathParams: [{ key: 'anticipo_id', label: 'ID Anticipo', placeholder: 'Ej: 1' }],
-        fields: [
-          { key: 'factura_pago', label: 'Nro Factura de Pago', placeholder: 'Ej: FC-2024-001' },
-          { key: 'pagado', label: 'Anticipo Pagado', type: 'toggle' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'desarrollo',
-    name: 'Desarrollo',
-    color: '#06b6d4',
-    endpoints: [
-      {
-        method: 'POST',
-        path: '/desarrollo/pedidos-material',
-        label: 'Crear Pedido de Material',
-        fields: [
-          { key: 'of_id', label: 'ID de OF', placeholder: 'Ej: 1' },
-          { key: 'materiales', label: 'Materiales', placeholder: 'Ej: Chapa AISI 304, Soldadura MIG' },
-        ],
-      },
-      {
-        method: 'GET',
-        path: '/desarrollo/pedidos-material',
-        label: 'Listar Pedidos de Material',
-        fields: [],
-      },
-      {
-        method: 'POST',
-        path: '/desarrollo/planos',
-        label: 'Enviar Plano a Produccion',
-        fields: [
-          { key: 'of_id', label: 'ID de OF', placeholder: 'Ej: 1' },
-          { key: 'descripcion', label: 'Descripcion', placeholder: 'Ej: Plano tanque 5000L rev.2' },
-        ],
-      },
-      {
-        method: 'GET',
-        path: '/desarrollo/planos',
-        label: 'Listar Planos',
-        fields: [],
-      },
-    ],
-  },
-  {
-    id: 'compras',
-    name: 'Compras',
-    color: '#f59e0b',
-    endpoints: [
-      {
-        method: 'POST',
-        path: '/compras/facturas',
-        label: 'Registrar Factura',
-        fields: [
-          { key: 'proveedor', label: 'Proveedor', placeholder: 'Ej: Metalurgica Norte SRL' },
-          { key: 'monto', label: 'Monto', placeholder: 'Ej: 150000' },
-          { key: 'descripcion', label: 'Descripcion', placeholder: 'Ej: Compra de chapa' },
-        ],
-      },
-      {
-        method: 'GET',
-        path: '/compras/facturas',
-        label: 'Listar Facturas',
-        fields: [],
-      },
-    ],
-  },
-  {
-    id: 'panol',
-    name: 'Panol',
-    color: '#10b981',
-    endpoints: [
-      {
-        method: 'POST',
-        path: '/panol/ingresos',
-        label: 'Registrar Ingreso',
-        fields: [
-          { key: 'material', label: 'Material', placeholder: 'Ej: Chapa AISI 304' },
-          { key: 'cantidad', label: 'Cantidad', placeholder: 'Ej: 50' },
-          { key: 'factura_id', label: 'ID Factura', placeholder: 'Ej: 1' },
-        ],
-      },
-      {
-        method: 'GET',
-        path: '/panol/ingresos',
-        label: 'Listar Ingresos',
-        fields: [],
-      },
-      {
-        method: 'POST',
-        path: '/panol/movimientos/produccion',
-        label: 'Despachar Material a Produccion',
-        fields: [
-          { key: 'material', label: 'Material', placeholder: 'Ej: Chapa AISI 304' },
-          { key: 'cantidad', label: 'Cantidad', placeholder: 'Ej: 20' },
-          { key: 'destino', label: 'Destino', placeholder: 'Ej: Linea 1' },
-        ],
-      },
-      {
-        method: 'GET',
-        path: '/panol/movimientos',
-        label: 'Listar Movimientos',
-        fields: [],
-      },
-    ],
-  },
-  {
-    id: 'produccion',
-    name: 'Produccion',
-    color: '#ef4444',
-    endpoints: [
-      {
-        method: 'POST',
-        path: '/produccion/lotes-terminados',
-        label: 'Finalizar Lote',
-        fields: [
-          { key: 'of_id', label: 'ID de OF', placeholder: 'Ej: 1' },
-          { key: 'producto', label: 'Producto', placeholder: 'Ej: Tanque 5000L' },
-          { key: 'cantidad', label: 'Cantidad', placeholder: 'Ej: 1' },
-        ],
-      },
-      {
-        method: 'GET',
-        path: '/produccion/lotes-terminados',
-        label: 'Listar Lotes',
-        fields: [],
-      },
-    ],
-  },
-  {
-    id: 'logistica',
-    name: 'Logistica',
-    color: '#f97316',
-    endpoints: [
-      {
-        method: 'POST',
-        path: '/logistica/despachos',
-        label: 'Crear Despacho',
-        fields: [
-          { key: 'lote_id', label: 'ID Lote', placeholder: 'Ej: 1' },
-          { key: 'destino', label: 'Destino', placeholder: 'Ej: Ruta 34 Km 200' },
-          { key: 'transportista', label: 'Transportista', placeholder: 'Ej: Transportes Sur SRL' },
-        ],
-      },
-      {
-        method: 'GET',
-        path: '/logistica/despachos',
-        label: 'Listar Despachos',
-        fields: [],
-      },
-      {
-        method: 'POST',
-        path: '/logistica/despachos/{despacho_id}/solicitar-autorizacion',
-        label: 'Solicitar Autorizacion',
-        pathParams: [{ key: 'despacho_id', label: 'ID Despacho', placeholder: 'Ej: 1' }],
-        fields: [],
-      },
-      {
-        method: 'POST',
-        path: '/logistica/despachos/{despacho_id}/ejecutar',
-        label: 'Ejecutar Despacho',
-        pathParams: [{ key: 'despacho_id', label: 'ID Despacho', placeholder: 'Ej: 1' }],
-        fields: [],
-      },
-    ],
-  },
+  { id: 'dashboard', name: 'Dashboard', icon: <LayoutGrid size={20} />, iconName: 'dashboard' },
+  { id: 'comercial', name: 'Comercial', icon: <ShoppingCart size={20} />, iconName: 'payments' },
+  { id: 'administracion', name: 'Administración', icon: <Shield size={20} />, iconName: 'admin_panel_settings' },
+  { id: 'compras', name: 'Compras', icon: <Package size={20} />, iconName: 'shopping_bag' },
+  { id: 'desarrollo', name: 'Desarrollo', icon: <Code size={20} />, iconName: 'developer_board' },
+  { id: 'panol', name: 'Pañol', icon: <Box size={20} />, iconName: 'inventory_2' },
+  { id: 'produccion', name: 'Producción', icon: <Activity size={20} />, iconName: 'factory' },
+  { id: 'logistica', name: 'Logística', icon: <Truck size={20} />, iconName: 'local_shipping' },
 ]
 
 function App() {
-  const [statuses, setStatuses] = useState({})
-  const [activeModule, setActiveModule] = useState(null)
-  const [formData, setFormData] = useState({})
-  const [responses, setResponses] = useState({})
-  const [loading, setLoading] = useState({})
-
-  const fetchStatuses = () => {
-    setStatuses({})
-    MODULES.forEach(async (mod) => {
-      try {
-        const res = await fetch(`${API_BASE}/${mod.id}/`)
-        const data = await res.json()
-        setStatuses((prev) => ({ ...prev, [mod.id]: { online: true, data } }))
-      } catch {
-        setStatuses((prev) => ({ ...prev, [mod.id]: { online: false } }))
-      }
-    })
-  }
-
-  useEffect(() => {
-    fetchStatuses()
-  }, [])
-
-  const handleFieldChange = (moduleId, endpointIdx, fieldKey, value) => {
-    const key = `${moduleId}-${endpointIdx}`
-    setFormData((prev) => ({
-      ...prev,
-      [key]: { ...(prev[key] || {}), [fieldKey]: value },
-    }))
-  }
-
-  const handleSubmit = async (moduleId, endpointIdx, endpoint) => {
-    const key = `${moduleId}-${endpointIdx}`
-    const data = formData[key] || {}
-    setLoading((prev) => ({ ...prev, [key]: true }))
-
-    try {
-      let url = `${API_BASE}/${endpoint.path}`
-
-      if (endpoint.pathParams) {
-        endpoint.pathParams.forEach((param) => {
-          url = url.replace(`{${param.key}}`, data[param.key] || '')
-        })
-      }
-
-      const body = {}
-      if (endpoint.fields) {
-        endpoint.fields.forEach((f) => {
-          if (f.type === 'toggle') {
-            body[f.key] = !!data[f.key]
-          } else {
-            body[f.key] = data[f.key] || ''
-          }
-        })
-      }
-
-      const options = {
-        method: endpoint.method,
-        headers: { 'Content-Type': 'application/json' },
-      }
-
-      if (endpoint.method !== 'GET' && endpoint.fields && endpoint.fields.length > 0) {
-        options.body = JSON.stringify(body)
-      }
-
-      const res = await fetch(url, options)
-      const result = await res.json()
-      setResponses((prev) => ({ ...prev, [key]: { status: res.status, data: result } }))
-    } catch (err) {
-      setResponses((prev) => ({
-        ...prev,
-        [key]: { status: 'error', data: { error: err.message } },
-      }))
-    } finally {
-      setLoading((prev) => ({ ...prev, [key]: false }))
-    }
-  }
+  const [activeModule, setActiveModule] = useState('dashboard')
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
-    <div className="app">
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, opacity: 0.4, pointerEvents: 'none' }}>
+    <div className="flex h-screen bg-background text-on-surface font-plus-jakarta overflow-hidden">
+      {/* Background Effect (Softened) */}
+      <div className="fixed inset-0 z-0 opacity-10 pointer-events-none">
         <LetterGlitch
           glitchSpeed={50}
           centerVignette={true}
@@ -311,160 +52,169 @@ function App() {
           smooth={true}
         />
       </div>
-      <header className="header">
-        <div>
-          <h1>ERP Industrial</h1>
-          <p className="subtitle">API Tester Dashboard</p>
-        </div>
-        <button className="refresh-btn" onClick={fetchStatuses}>
-          Refresh Status
-        </button>
-      </header>
 
-      <section className="status-grid">
-        {MODULES.map((mod) => (
-          <div
-            key={mod.id}
-            className={`status-card ${activeModule === mod.id ? 'active' : ''}`}
-            style={{ '--module-color': mod.color }}
-            onClick={() => setActiveModule(activeModule === mod.id ? null : mod.id)}
-          >
-            <div
-              className="status-indicator"
-              style={{
-                backgroundColor: statuses[mod.id]?.online
-                  ? '#22c55e'
-                  : statuses[mod.id]?.online === false
-                    ? '#ef4444'
-                    : '#6b7280',
-              }}
-            />
-            <span className="status-name">{mod.name}</span>
-            <span className="status-badge" style={{ color: mod.color }}>
-              {statuses[mod.id]?.online
-                ? 'ONLINE'
-                : statuses[mod.id]?.online === false
-                  ? 'OFFLINE'
-                  : '...'}
-            </span>
-          </div>
-        ))}
-      </section>
-
-      {activeModule === 'comercial' && (
-        <section className="tester-panel">
-          <ComercialPanel />
-        </section>
-      )}
-
-      {activeModule === 'administracion' && (
-        <section className="tester-panel">
-          <AdminPanel />
-        </section>
-      )}
-
-      {activeModule === 'desarrollo' && (
-        <section className="tester-panel">
-          <DesarrolloPanel />
-        </section>
-      )}
-
-      {activeModule === 'compras' && (
-        <section className="tester-panel">
-          <ComprasPanel />
-        </section>
-      )}
-
-      {activeModule && activeModule !== 'administracion' && activeModule !== 'desarrollo' && activeModule !== 'compras' && activeModule !== 'comercial' && (
-        <section className="tester-panel">
-          {MODULES.filter((m) => m.id === activeModule).map((mod) => (
-            <div key={mod.id}>
-              <h2 style={{ color: mod.color }}>{mod.name}</h2>
-              {mod.endpoints.map((ep, idx) => {
-                const key = `${mod.id}-${idx}`
-                return (
-                  <div key={idx} className="endpoint-card">
-                    <div className="endpoint-header">
-                      <span className={`method-badge method-${ep.method.toLowerCase()}`}>
-                        {ep.method}
-                      </span>
-                      <code>
-                        {API_BASE}/{ep.path}
-                      </code>
-                    </div>
-                    <h3>{ep.label}</h3>
-
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        handleSubmit(mod.id, idx, ep)
-                      }}
-                    >
-                      {ep.pathParams?.map((param) => (
-                        <div key={param.key} className="field">
-                          <label>{param.label}</label>
-                          <input
-                            type="text"
-                            placeholder={param.placeholder}
-                            value={(formData[key] || {})[param.key] || ''}
-                            onChange={(e) =>
-                              handleFieldChange(mod.id, idx, param.key, e.target.value)
-                            }
-                          />
-                        </div>
-                      ))}
-                      {ep.fields?.map((field) => (
-                        <div key={field.key} className={`field ${field.type === 'toggle' ? 'field-toggle' : ''}`}>
-                          <label>{field.label}</label>
-                          {field.type === 'toggle' ? (
-                            <div
-                              className={`toggle ${(formData[key] || {})[field.key] ? 'toggle-on' : ''}`}
-                              onClick={() =>
-                                handleFieldChange(mod.id, idx, field.key, !(formData[key] || {})[field.key])
-                              }
-                            >
-                              <div className="toggle-knob" />
-                              <span className="toggle-label">
-                                {(formData[key] || {})[field.key] ? 'SI' : 'NO'}
-                              </span>
-                            </div>
-                          ) : (
-                          <input
-                            type="text"
-                            placeholder={field.placeholder}
-                            value={(formData[key] || {})[field.key] || ''}
-                            onChange={(e) =>
-                              handleFieldChange(mod.id, idx, field.key, e.target.value)
-                            }
-                          />
-                          )}
-                        </div>
-                      ))}
-                      <button type="submit" className="submit-btn" disabled={loading[key]}>
-                        {loading[key] ? 'Enviando...' : 'Enviar Request'}
-                      </button>
-                    </form>
-
-                    {responses[key] && (
-                      <div className="response-panel">
-                        <div className="response-header">
-                          <span
-                            className={`status-code ${responses[key].status < 300 ? 'success' : 'error'}`}
-                          >
-                            Status: {responses[key].status}
-                          </span>
-                        </div>
-                        <pre>{JSON.stringify(responses[key].data, null, 2)}</pre>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+      {/* Sidebar - Desktop */}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-surface-container border-r border-outline-variant transition-transform duration-300 transform lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:static lg:inset-0`}>
+        <div className="flex flex-col h-full py-6">
+          <div className="px-6 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center shadow-lg shadow-primary/10">
+                <Zap className="text-on-primary-container" size={24} fill="currentColor" />
+              </div>
+              <div>
+                <h1 className="text-lg font-black text-white tracking-tight leading-none">ERP-LG</h1>
+                <p className="text-[10px] text-outline uppercase tracking-[0.2em] font-bold mt-1">Industrial Hub</p>
+              </div>
             </div>
-          ))}
-        </section>
+          </div>
+
+          <nav className="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
+            {MODULES.map((mod) => (
+              <button
+                key={mod.id}
+                onClick={() => {
+                  setActiveModule(mod.id)
+                  setIsSidebarOpen(false)
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                  activeModule === mod.id
+                    ? 'bg-primary-container/10 text-primary border border-primary/20 shadow-sm'
+                    : 'text-outline hover:text-on-surface hover:bg-surface-variant/50'
+                }`}
+              >
+                <span className={`material-symbols-outlined transition-transform group-hover:scale-110 ${activeModule === mod.id ? 'text-primary' : 'text-outline'}`} style={{ fontVariationSettings: activeModule === mod.id ? "'FILL' 1" : "'FILL' 0" }}>
+                  {mod.iconName}
+                </span>
+                {mod.name}
+              </button>
+            ))}
+          </nav>
+
+          <div className="px-3 mt-6 pt-6 border-t border-outline-variant space-y-1">
+            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-outline hover:text-on-surface hover:bg-surface-variant/50 transition-all">
+              <span className="material-symbols-outlined">help</span>
+              Soporte
+            </button>
+            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-error hover:bg-error/10 transition-all">
+              <span className="material-symbols-outlined">logout</span>
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Wrapper */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative z-10">
+        {/* Top Header */}
+        <header className="h-16 bg-background/80 backdrop-blur-md border-b border-outline-variant flex items-center justify-between px-6 sticky top-0 z-30">
+          <div className="flex items-center gap-4 flex-1">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 text-outline hover:text-white"
+            >
+              <Menu size={20} />
+            </button>
+            
+            <div className="hidden md:flex items-center gap-2 text-outline font-label-sm uppercase tracking-widest text-[10px]">
+              <span>Sistema</span>
+              <ChevronRight size={10} />
+              <span className="text-primary font-bold">{MODULES.find(m => m.id === activeModule)?.name}</span>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative max-w-md w-full ml-4 hidden sm:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" size={16} />
+              <input 
+                type="text" 
+                placeholder="Buscar en el sistema..." 
+                className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-1.5 pl-10 pr-4 text-xs focus:outline-none focus:border-primary transition-all text-on-surface"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <HeaderAction icon={<Notifications size={18} />} hasBadge />
+            <HeaderAction icon={<Settings size={18} />} />
+            
+            <div className="h-8 w-px bg-outline-variant mx-2 hidden sm:block" />
+            
+            <div className="flex items-center gap-3 pl-2">
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-xs font-bold text-on-surface">Admin Terminal</span>
+                <span className="text-[9px] text-secondary font-black uppercase tracking-widest">Online</span>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center overflow-hidden hover:border-primary transition-colors cursor-pointer">
+                <img 
+                  src="https://ui-avatars.com/api/?name=Admin+ERP&background=b8c4ff&color=001453" 
+                  alt="User Avatar"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Canvas */}
+        <main className="flex-1 overflow-y-auto p-gutter custom-scrollbar bg-background">
+          <div className="max-w-container-max mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
+            {activeModule === 'dashboard' && <DashboardPanel />}
+            {activeModule === 'comercial' && <ComercialPanel />}
+            {activeModule === 'administracion' && <AdminPanel />}
+            {activeModule === 'desarrollo' && <DesarrolloPanel />}
+            {activeModule === 'compras' && <ComprasPanel />}
+            
+            {(activeModule === 'panol' || activeModule === 'produccion' || activeModule === 'logistica') && (
+              <GenericModuleTester moduleId={activeModule} />
+            )}
+            
+            {!['dashboard', 'comercial', 'administracion', 'desarrollo', 'compras', 'panol', 'produccion', 'logistica'].includes(activeModule) && (
+              <div className="flex flex-col items-center justify-center h-[60vh] text-outline border-2 border-dashed border-outline-variant rounded-3xl">
+                <LayoutGrid size={48} className="mb-4 opacity-10" />
+                <p className="text-lg font-bold">Módulo {activeModule} en desarrollo</p>
+                <button className="mt-4 text-primary text-xs font-bold hover:underline flex items-center gap-2">
+                  <ExternalLink size={14} /> Solicitar Acceso
+                </button>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+      
+      {/* Mobile Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
       )}
     </div>
+  )
+}
+
+function HeaderAction({ icon, hasBadge }) {
+  return (
+    <button className="relative p-2 text-outline hover:text-primary hover:bg-primary/10 rounded-full transition-all active:scale-90">
+      {icon}
+      {hasBadge && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full border-2 border-background" />}
+    </button>
+  )
+}
+
+function ChevronRight({ size = 16, className = "" }) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2.5" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      className={className}
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
   )
 }
 

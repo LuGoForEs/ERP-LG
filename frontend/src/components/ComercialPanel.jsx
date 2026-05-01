@@ -1,4 +1,23 @@
 import { useState, useEffect } from 'react'
+import { 
+  PlusCircle, 
+  History, 
+  User, 
+  Calendar, 
+  DollarSign, 
+  Send, 
+  CheckCircle, 
+  AlertTriangle, 
+  X, 
+  Clock, 
+  FileText,
+  ChevronRight,
+  TrendingUp,
+  Briefcase,
+  Users,
+  Target,
+  Loader2
+} from 'lucide-react'
 
 const API_BASE = '/api/v1'
 
@@ -83,220 +102,253 @@ export default function ComercialPanel() {
   }
 
   return (
-    <div className="comercial-panel-container">
-      <div className="admin-panel" style={{ 
-        display: 'flex', 
-        gap: '1.5rem', 
-        alignItems: 'flex-start', // Permite que el sticky funcione
-        justifyContent: 'stretch'
-      }}>
-        
-        {/* BLOQUE IZQUIERDO: ÓRDENES RECIENTES */}
-        <div className="admin-list" style={{ 
-          flex: '0 0 350px',
-          height: '490px', // Ajustado para que entren exactamente 3 órdenes
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#0f172a',
-          borderRadius: '0.75rem',
-          border: '1px solid #1e293b',
-          overflow: 'hidden',
-          padding: 0
-        }}>
-          <div style={{ 
-            padding: '1.25rem', 
-            borderBottom: '1px solid #1e293b', 
-            background: '#1e293b',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <h3 style={{ 
-              fontSize: '0.8rem', 
-              color: '#94a3b8', 
-              textTransform: 'uppercase', 
-              letterSpacing: '0.05em', 
-              margin: 0 
-            }}>Órdenes Recientes</h3>
-          </div>
-          
-          <div className="scrollable-list" style={{ 
-            flex: 1, 
-            overflowY: 'auto', 
-            padding: '1rem',
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#334155 #0f172a'
-          }}>
-            {ordenes.length === 0 && (
-              <p className="admin-empty">Sin órdenes de fabricación</p>
-            )}
-            {ordenes.slice(0).reverse().map(o => (
-              <div key={o.id} className="admin-of-card" style={{ marginBottom: '0.75rem', border: '1px solid #1e293b' }}>
-                <div className="admin-of-header">
-                  <span className="admin-of-id">OF-{o.id}</span>
-                  <span className="admin-estado" style={{ color: '#3b82f6' }}>{o.estado}</span>
-                </div>
-                <div className="admin-of-cliente">{o.cliente}</div>
-                <div className="admin-of-desc">{o.descripcion}</div>
-                <div className="admin-of-monto" style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
-                  Plazo: {o.plazo_entrega}
-                </div>
-                <div className="admin-of-monto">
-                  Anticipo: {o.moneda_anticipo === 'definir' ? o.anticipo_descripcion : `${o.moneda_anticipo} ${Number(o.monto_anticipo).toLocaleString()}`}
-                </div>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="flex justify-between items-end mb-2">
+        <div>
+          <h2 className="font-headline-lg text-headline-lg text-on-surface">Dashboard Comercial</h2>
+          <p className="font-body-md text-body-md text-outline mt-1">Resumen de rendimiento de ventas y pipeline actual.</p>
+        </div>
+      </div>
+
+      {/* Metrics Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MiniStat title="Facturación YTD" value="$4.2M" trend="+12%" icon="payments" color="text-primary" />
+        <MiniStat title="Pipeline Activo" value={`${ordenes.length} OFs`} trend="Live" icon="group" color="text-secondary" />
+        <MiniStat title="Margen Promedio" value="22%" trend="-1.2%" icon="percent" color="text-error" />
+        <MiniStat title="Crecimiento" value="+8%" trend="Saludable" icon="trending_up" color="text-primary" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter">
+        {/* Main Column: Funnel & Table */}
+        <div className="xl:col-span-8 space-y-gutter">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+            {/* Funnel */}
+            <div className="lg:col-span-1 bg-surface-container border border-outline-variant rounded-xl p-6 flex flex-col shadow-lg">
+              <h3 className="font-headline-sm text-headline-sm text-on-surface mb-6">Embudo de Ventas</h3>
+              <div className="flex-1 flex flex-col justify-center items-center gap-2 relative">
+                <FunnelStep label="Leads" value="128" width="w-[90%]" opacity="bg-primary/20" textColor="text-primary" />
+                <FunnelStep label="Cotización" value="85" width="w-[75%]" opacity="bg-primary/40" textColor="text-primary-fixed" />
+                <FunnelStep label="Negociación" value="42" width="w-[50%]" opacity="bg-secondary/30" textColor="text-secondary" />
+                <FunnelStep label="Cerrado" value={ordenes.length} width="w-[30%]" opacity="bg-secondary/60" textColor="text-background" isBottom />
               </div>
-            ))}
+            </div>
+
+            {/* Recent Orders Table */}
+            <div className="lg:col-span-2 bg-surface-container border border-outline-variant rounded-xl flex flex-col overflow-hidden shadow-lg">
+              <div className="p-6 pb-4 border-b border-outline-variant flex justify-between items-center">
+                <h3 className="font-headline-sm text-headline-sm text-on-surface">Órdenes de Fabricación</h3>
+                <button className="text-primary hover:underline font-label-md text-label-md flex items-center gap-1">
+                  Ver todas <ChevronRight size={14} />
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-background/50 border-b border-outline-variant">
+                      <th className="p-4 font-label-md text-label-md text-outline font-semibold tracking-wider">Cliente / OF</th>
+                      <th className="p-4 font-label-md text-label-md text-outline font-semibold tracking-wider text-right">Anticipo</th>
+                      <th className="p-4 font-label-md text-label-md text-outline font-semibold tracking-wider text-center">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-body-md text-body-md">
+                    {ordenes.slice(0, 5).reverse().map(o => (
+                      <tr key={o.id} className="border-b border-outline-variant hover:bg-surface-variant transition-colors group cursor-pointer">
+                        <td className="p-4">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 rounded-lg bg-surface-variant border border-outline-variant flex items-center justify-center mr-3 text-outline font-bold text-[10px]">
+                              {o.cliente.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="text-on-surface font-medium group-hover:text-primary transition-colors text-sm">{o.cliente}</div>
+                              <div className="text-outline font-label-sm text-[10px] mt-0.5 uppercase tracking-tighter font-bold">OF-{o.id}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-right text-on-surface font-bold text-sm">
+                          {o.moneda_anticipo === 'definir' ? 'A definir' : `$${Number(o.monto_anticipo).toLocaleString()}`}
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-label-sm text-[9px] font-black uppercase tracking-widest border ${
+                            o.estado === 'aprobada' ? 'bg-secondary/10 text-secondary border-secondary/20' : 
+                            o.estado === 'pendiente_anticipo' ? 'bg-primary/10 text-primary border-primary/20' : 
+                            'bg-surface-bright text-outline border-outline-variant'
+                          }`}>
+                            {o.estado.replace('_', ' ')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {ordenes.length === 0 && (
+                      <tr>
+                        <td colSpan="3" className="p-8 text-center text-outline italic text-sm">No hay órdenes registradas</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* BLOQUE DERECHO: NUEVA ORDEN (STATIC/STICKY) */}
-        <div className="admin-detail" style={{ 
-          flex: 1, 
-          position: 'sticky', 
-          top: '20px', 
-          height: '490px', // Misma altura que el de la izquierda
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#0f172a',
-          borderRadius: '0.75rem',
-          border: '1px solid #1e293b',
-          overflow: 'hidden',
-          padding: 0
-        }}>
-          <div className="admin-detail-header" style={{ 
-            padding: '1.25rem', 
-            borderBottom: '1px solid #1e293b', 
-            margin: 0,
-            background: '#1e293b'
-          }}>
-            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Nueva Orden de Fabricación</h3>
-          </div>
-
-          <div className="admin-form" style={{ 
-            flex: 1, 
-            overflowY: 'auto', 
-            padding: '1.5rem',
-            scrollbarWidth: 'thin'
-          }}>
-            <div className="field">
-              <label>Cliente *</label>
-              <input 
-                type="text" 
-                placeholder="Nombre del cliente..."
-                value={formData.cliente}
-                onChange={(e) => setFormData({...formData, cliente: e.target.value})}
-              />
+        {/* Right Column: New OF Form */}
+        <div className="xl:col-span-4 space-y-gutter">
+          <div className="bg-surface-container border border-outline-variant rounded-xl p-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+              <PlusCircle size={80} className="text-primary" />
             </div>
+            
+            <h3 className="font-headline-sm text-headline-sm text-on-surface mb-6 flex items-center gap-2">
+              <PlusCircle size={20} className="text-primary" />
+              Nueva Orden (OF)
+            </h3>
 
-            <div className="field">
-              <label>Descripción del Trabajo *</label>
-              <textarea 
-                className="admin-textarea"
-                rows={3}
-                placeholder="Detalle de lo que se va a fabricar..."
-                value={formData.descripcion}
-                onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
-              />
-            </div>
+            <div className="space-y-5 relative z-10">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em] flex items-center gap-2">
+                  <User size={12} className="text-primary" />
+                  Cliente
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Nombre del cliente..."
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface"
+                  value={formData.cliente}
+                  onChange={(e) => setFormData({...formData, cliente: e.target.value})}
+                />
+              </div>
 
-            <div className="admin-detail-grid">
-              <div className="field">
-                <label>Plazo de Entrega *</label>
-                <div style={{ display: 'flex' }}>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Calendar size={12} className="text-primary" />
+                  Plazo de Entrega
+                </label>
+                <div className="flex">
                   <input 
                     type="number" 
-                    placeholder="Valor"
-                    style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                    placeholder="Cant."
+                    className="w-20 bg-surface-container-low border border-outline-variant rounded-l-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface border-r-0"
                     value={formData.plazo_valor}
                     onChange={(e) => setFormData({...formData, plazo_valor: e.target.value})}
                   />
                   <select 
-                    className="admin-textarea"
-                    style={{ width: '100px', padding: '0.45rem', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, fontSize: '0.8rem', height: '37px' }}
+                    className="flex-1 bg-surface-container-low border border-outline-variant rounded-r-lg py-2.5 px-2 text-xs focus:outline-none focus:border-primary transition-all text-outline font-bold"
                     value={formData.plazo_unidad}
                     onChange={(e) => setFormData({...formData, plazo_unidad: e.target.value})}
                   >
                     <option value="dias">Días</option>
                     <option value="meses">Meses</option>
-                    <option value="años">Años</option>
                   </select>
                 </div>
               </div>
 
-              <div className="field">
-                <label>Anticipo Requerido *</label>
-                <div style={{ display: 'flex' }}>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em] flex items-center gap-2">
+                  <FileText size={12} className="text-primary" />
+                  Descripción Técnica
+                </label>
+                <textarea 
+                  rows={3}
+                  placeholder="Detalle de fabricación..."
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface resize-none"
+                  value={formData.descripcion}
+                  onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em] flex items-center gap-2">
+                  <DollarSign size={12} className="text-primary" />
+                  Anticipo
+                </label>
+                <div className="flex gap-2">
                   <input 
                     type="number" 
-                    placeholder="Monto"
-                    style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                    placeholder="Monto..."
+                    className="flex-1 bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface"
                     value={formData.anticipo_valor}
                     onChange={(e) => setFormData({...formData, anticipo_valor: e.target.value})}
                   />
                   <select 
-                    className="admin-textarea"
-                    style={{ width: '100px', padding: '0.45rem', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, fontSize: '0.8rem', height: '37px' }}
+                    className="w-24 bg-surface-container-low border border-outline-variant rounded-lg py-2.5 px-2 text-[10px] focus:outline-none focus:border-primary transition-all text-outline font-bold"
                     value={formData.anticipo_moneda}
                     onChange={(e) => setFormData({...formData, anticipo_moneda: e.target.value})}
                   >
-                    <option value="ARS">ARS ($)</option>
-                    <option value="USD">USD (U$S)</option>
-                    <option value="EUR">Euros (€)</option>
-                    <option value="definir">Otras...</option>
+                    <option value="ARS">ARS</option>
+                    <option value="USD">USD</option>
+                    <option value="definir">OTRA</option>
                   </select>
                 </div>
               </div>
-            </div>
 
-            {formData.anticipo_moneda === 'definir' && (
-              <div className="field">
-                <label>Moneda a Definir *</label>
+              {formData.anticipo_moneda === 'definir' && (
                 <input 
                   type="text" 
-                  placeholder="Descripción de la moneda o forma de pago..."
+                  placeholder="Especifique moneda/forma..."
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-2 px-3 text-[10px] focus:outline-none focus:border-primary transition-all text-on-surface animate-in slide-in-from-top-1"
                   value={formData.anticipo_descripcion}
                   onChange={(e) => setFormData({...formData, anticipo_descripcion: e.target.value})}
                 />
-              </div>
-            )}
+              )}
 
-            <button 
-              className="submit-btn" 
-              style={{ width: '100%', marginTop: '0.5rem', backgroundColor: '#3b82f6', padding: '0.75rem' }}
-              disabled={!isFormValid || loading}
-              onClick={() => setShowConfirm(true)}
-            >
-              {loading ? 'Procesando...' : 'CREAR ORDEN DE FABRICACIÓN'}
-            </button>
-            
-            {!isFormValid && (
-              <p style={{ fontSize: '0.7rem', color: '#475569', marginTop: '0.75rem', textAlign: 'center' }}>
-                * Todos los campos son requeridos.
-              </p>
-            )}
+              <button 
+                className="w-full mt-4 py-3.5 bg-primary hover:bg-primary-fixed-dim text-on-primary font-bold text-xs rounded-xl transition-all shadow-lg shadow-primary/20 active:scale-95 disabled:opacity-50 disabled:grayscale"
+                disabled={!isFormValid || loading}
+                onClick={() => setShowConfirm(true)}
+              >
+                {loading ? <Loader2 size={16} className="animate-spin inline mr-2" /> : <Send size={16} className="inline mr-2" />}
+                EMITIR ORDEN DE FABRICACIÓN
+              </button>
+            </div>
+          </div>
+
+          {/* Insights Panel */}
+          <div className="bg-surface-container border border-outline-variant rounded-xl p-6 shadow-lg">
+            <h3 className="text-[10px] font-black text-outline uppercase tracking-[0.2em] mb-4">Insights Comerciales</h3>
+            <div className="space-y-4">
+              <InsightItem icon="lightbulb" text="3 cotizaciones expiran pronto." type="secondary" />
+              <InsightItem icon="warning" text="Ciclo de venta aumentó 5 días." type="error" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Modal de Confirmación Estilo Dark */}
+      {/* Confirmation Modal */}
       {showConfirm && (
-        <div className="modal-overlay">
-          <div className="endpoint-card" style={{ maxWidth: '400px', border: '1px solid #334155', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)' }}>
-            <h3 style={{ color: '#e2e8f0', marginBottom: '1rem' }}>Confirmar Operación</h3>
-            <p style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '1.5rem' }}>
-              ¿Estás seguro que deseas crear la Orden de Fabricación para <strong>{formData.cliente}</strong>?
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-surface-container-high border border-outline-variant rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-3 bg-secondary/10 rounded-2xl border border-secondary/20 text-secondary">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Validar Datos</h3>
+                <p className="text-xs text-outline">Confirmar emisión de OF comercial</p>
+              </div>
+            </div>
+            
+            <div className="bg-background/50 border border-outline-variant rounded-2xl p-4 mb-8 space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-outline">Cliente:</span>
+                <span className="text-on-surface font-bold">{formData.cliente}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-outline">Anticipo:</span>
+                <span className="text-primary font-bold">
+                  {formData.anticipo_moneda === 'definir' ? formData.anticipo_descripcion : `${formData.anticipo_moneda} ${Number(formData.anticipo_valor).toLocaleString()}`}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
               <button 
-                className="refresh-btn" 
-                style={{ flex: 1 }}
+                className="flex-1 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-xs font-bold text-outline hover:bg-surface-variant transition-all"
                 onClick={() => setShowConfirm(false)}
               >
-                Cancelar
+                Volver
               </button>
               <button 
-                className="submit-btn" 
-                style={{ flex: 1, backgroundColor: '#16a34a' }}
+                className="flex-1 py-3 bg-secondary hover:bg-secondary-fixed text-on-secondary rounded-xl text-xs font-bold shadow-lg shadow-secondary/20 transition-all"
                 onClick={handleCreate}
               >
                 Confirmar
@@ -306,34 +358,57 @@ export default function ComercialPanel() {
         </div>
       )}
 
-      {/* Toasts de mensaje */}
+      {/* Messages */}
       {message && (
-        <div className={`message-toast ${message.type}`} style={{
-          position: 'fixed', bottom: '20px', right: '20px', padding: '1rem 1.5rem', borderRadius: '0.5rem',
-          backgroundColor: message.type === 'success' ? '#065f46' : '#7f1d1d',
-          color: message.type === 'success' ? '#a7f3d0' : '#fecaca',
-          border: `1px solid ${message.type === 'success' ? '#059669' : '#b91c1c'}`,
-          zIndex: 1100, display: 'flex', alignItems: 'center', gap: '1rem'
-        }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{message.text}</span>
-          <button 
-            onClick={() => setMessage(null)}
-            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.2rem' }}
-          >
-            &times;
+        <div className={`fixed bottom-8 right-8 z-[100] flex items-center gap-4 p-5 rounded-2xl border shadow-2xl animate-in slide-in-from-right-8 duration-300 ${
+          message.type === 'success' ? 'bg-secondary/20 border-secondary text-secondary-fixed' : 'bg-error/20 border-error text-error'
+        }`}>
+          {message.type === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
+          <p className="text-xs font-bold">{message.text}</p>
+          <button onClick={() => setMessage(null)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+            <X size={16} />
           </button>
         </div>
       )}
+    </div>
+  )
+}
 
-      <style jsx="true">{`
-        .modal-overlay {
-          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(15, 23, 42, 0.8);
-          backdrop-filter: blur(4px);
-          display: flex; align-items: center; justify-content: center;
-          z-index: 1000;
-        }
-      `}</style>
+function MiniStat({ title, value, trend, icon, color }) {
+  return (
+    <div className="bg-surface-container-high border border-outline-variant rounded-xl p-5 hover:bg-surface-variant transition-all group shadow-md">
+      <div className="flex justify-between items-start mb-4">
+        <span className={`material-symbols-outlined ${color} group-hover:scale-110 transition-transform`} style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+        <span className={`font-label-sm text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${
+          trend.includes('+') ? 'bg-secondary/10 text-secondary' : 
+          trend.includes('-') ? 'bg-error/10 text-error' : 
+          'bg-primary/10 text-primary'
+        }`}>
+          {trend}
+        </span>
+      </div>
+      <h3 className="font-label-md text-[10px] text-outline mb-1 uppercase tracking-widest">{title}</h3>
+      <p className="font-headline-md text-headline-md text-on-surface">{value}</p>
+    </div>
+  )
+}
+
+function FunnelStep({ label, value, width, opacity, textColor, isBottom }) {
+  return (
+    <div className={`w-full flex justify-center items-center group cursor-pointer relative`}>
+      <div className={`${width} h-14 ${opacity} border border-outline/20 flex flex-col items-center justify-center transition-all group-hover:bg-opacity-80 backdrop-blur-sm z-10 ${isBottom ? 'rounded-b-lg' : 'rounded-t-none'} ${label === 'Leads' ? 'rounded-t-lg' : ''}`}>
+        <span className={`font-label-md text-[10px] font-black uppercase tracking-widest ${textColor}`}>{label} ({value})</span>
+      </div>
+    </div>
+  )
+}
+
+function InsightItem({ icon, text, type }) {
+  const color = type === 'secondary' ? 'text-secondary' : 'text-error';
+  return (
+    <div className="flex gap-3">
+      <span className={`material-symbols-outlined ${color} text-[18px]`}>{icon}</span>
+      <p className="font-body-md text-xs text-on-surface leading-snug">{text}</p>
     </div>
   )
 }

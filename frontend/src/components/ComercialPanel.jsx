@@ -123,16 +123,7 @@ export default function ComercialPanel() {
         {/* Main Column: Funnel & Table */}
         <div className="xl:col-span-8 space-y-gutter">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
-            {/* Funnel */}
-            <div className="lg:col-span-1 bg-surface-container border border-outline-variant rounded-xl p-6 flex flex-col shadow-lg">
-              <h3 className="font-headline-sm text-headline-sm text-on-surface mb-6">Embudo de Ventas</h3>
-              <div className="flex-1 flex flex-col justify-center items-center gap-2 relative">
-                <FunnelStep label="Leads" value="128" width="w-[90%]" opacity="bg-primary/20" textColor="text-primary" />
-                <FunnelStep label="Cotización" value="85" width="w-[75%]" opacity="bg-primary/40" textColor="text-primary-fixed" />
-                <FunnelStep label="Negociación" value="42" width="w-[50%]" opacity="bg-secondary/30" textColor="text-secondary" />
-                <FunnelStep label="Cerrado" value={ordenes.length} width="w-[30%]" opacity="bg-secondary/60" textColor="text-background" isBottom />
-              </div>
-            </div>
+            
 
             {/* Recent Orders Table */}
             <div className="lg:col-span-2 bg-surface-container border border-outline-variant rounded-xl flex flex-col overflow-hidden shadow-lg">
@@ -152,7 +143,7 @@ export default function ComercialPanel() {
                     </tr>
                   </thead>
                   <tbody className="font-body-md text-body-md">
-                    {ordenes.slice(0, 5).reverse().map(o => (
+                    {ordenes.slice(0, 5).map(o => (
                       <tr key={o.id} className="border-b border-outline-variant hover:bg-surface-variant transition-colors group cursor-pointer">
                         <td className="p-4">
                           <div className="flex items-center">

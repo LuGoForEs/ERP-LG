@@ -15,7 +15,7 @@ class ComprasViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='pedidos-material')
     def list_pedidos_pendientes(self, request):
-        pedidos = PedidoMaterial.objects.filter(estado="generado")
+        pedidos = PedidoMaterial.objects.filter(estado="generado").order_by('-created_at')
         return Response({"data": PedidoMaterialSerializer(pedidos, many=True).data})
 
     @extend_schema(request=None, responses={200: dict})
@@ -110,5 +110,5 @@ class ComprasViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='facturas')
     def list_facturas(self, request):
-        facturas = FacturaCompra.objects.prefetch_related('materiales__insumo', 'materiales__proveedor').all()
+        facturas = FacturaCompra.objects.prefetch_related('materiales__insumo', 'materiales__proveedor').all().order_by('-created_at')
         return Response({"data": FacturaCompraSerializer(facturas, many=True).data})

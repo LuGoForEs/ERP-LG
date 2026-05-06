@@ -19,7 +19,7 @@ def _fue_modificado(created, updated) -> bool:
 from drf_spectacular.utils import extend_schema
 
 class OrdenFabricacionViewSet(viewsets.ModelViewSet):
-    queryset = OrdenFabricacion.objects.all()
+    queryset = OrdenFabricacion.objects.all().order_by('-created_at')
     serializer_class = OrdenFabricacionSerializer
 
     def list(self, request, *args, **kwargs):

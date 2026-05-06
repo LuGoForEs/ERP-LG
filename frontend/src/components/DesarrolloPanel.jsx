@@ -18,7 +18,8 @@ import {
   Loader2,
   Layers,
   Settings,
-  Cpu
+  Cpu,
+  Send
 } from 'lucide-react'
 
 const API_BASE = '/api/v1'

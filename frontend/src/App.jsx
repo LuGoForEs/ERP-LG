@@ -4,8 +4,9 @@ import DesarrolloPanel from './components/DesarrolloPanel.jsx'
 import ComprasPanel from './components/ComprasPanel.jsx'
 import ComercialPanel from './components/ComercialPanel.jsx'
 import DashboardPanel from './components/DashboardPanel.jsx'
-import GenericModuleTester from './components/GenericModuleTester.jsx'
-import LetterGlitch from './components/LetterGlitch.jsx'
+import PanolPanel from './components/PanolPanel.jsx'
+import ProduccionPanel from './components/ProduccionPanel.jsx'
+import LogisticaPanel from './components/LogisticaPanel.jsx'
 import { 
   LayoutGrid, 
   Shield, 
@@ -17,13 +18,14 @@ import {
   Box, 
   Activity,
   Search,
-  Notifications,
+  Bell,
   HelpCircle,
   Settings,
   Menu,
   LogOut,
   User,
-  ExternalLink
+  ExternalLink,
+  ChevronRight
 } from 'lucide-react'
 
 const MODULES = [
@@ -43,16 +45,6 @@ function App() {
 
   return (
     <div className="flex h-screen bg-background text-on-surface font-plus-jakarta overflow-hidden">
-      {/* Background Effect (Softened) */}
-      <div className="fixed inset-0 z-0 opacity-10 pointer-events-none">
-        <LetterGlitch
-          glitchSpeed={50}
-          centerVignette={true}
-          outerVignette={false}
-          smooth={true}
-        />
-      </div>
-
       {/* Sidebar - Desktop */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-surface-container border-r border-outline-variant transition-transform duration-300 transform lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:static lg:inset-0`}>
         <div className="flex flex-col h-full py-6">
@@ -133,7 +125,7 @@ function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <HeaderAction icon={<Notifications size={18} />} hasBadge />
+            <HeaderAction icon={<Bell size={18} />} hasBadge />
             <HeaderAction icon={<Settings size={18} />} />
             
             <div className="h-8 w-px bg-outline-variant mx-2 hidden sm:block" />
@@ -163,10 +155,10 @@ function App() {
             {activeModule === 'desarrollo' && <DesarrolloPanel />}
             {activeModule === 'compras' && <ComprasPanel />}
             
-            {(activeModule === 'panol' || activeModule === 'produccion' || activeModule === 'logistica') && (
-              <GenericModuleTester moduleId={activeModule} />
-            )}
-            
+            {activeModule === 'panol' && <PanolPanel />}
+            {activeModule === 'produccion' && <ProduccionPanel />}
+            {activeModule === 'logistica' && <LogisticaPanel />}
+
             {!['dashboard', 'comercial', 'administracion', 'desarrollo', 'compras', 'panol', 'produccion', 'logistica'].includes(activeModule) && (
               <div className="flex flex-col items-center justify-center h-[60vh] text-outline border-2 border-dashed border-outline-variant rounded-3xl">
                 <LayoutGrid size={48} className="mb-4 opacity-10" />
@@ -197,24 +189,6 @@ function HeaderAction({ icon, hasBadge }) {
       {icon}
       {hasBadge && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full border-2 border-background" />}
     </button>
-  )
-}
-
-function ChevronRight({ size = 16, className = "" }) {
-  return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2.5" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
   )
 }
 

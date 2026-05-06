@@ -88,7 +88,7 @@ up() {
   color "3/3 levantando frontend..."
   docker compose -f "$ROOT/frontend/docker-compose.yml" up --build -d
 
-  color "listo → http://localhost:5173  ·  http://localhost:8000/docs"
+  color "listo → http://localhost:5173  ·  http://localhost:8000/api/schema/swagger-ui/"
 }
 
 down() {

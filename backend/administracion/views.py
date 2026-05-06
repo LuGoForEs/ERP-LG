@@ -29,7 +29,7 @@ class AdministracionViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='ordenes')
     def list_ordenes(self, request):
-        ordenes = OrdenFabricacion.objects.all()
+        ordenes = OrdenFabricacion.objects.all().order_by('-created_at')
         anticipos = Anticipo.objects.all()
         by_of = {a.of_id.id: a for a in anticipos}
         result = []

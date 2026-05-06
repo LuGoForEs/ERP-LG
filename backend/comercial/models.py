@@ -17,7 +17,6 @@ class OrdenFabricacion(models.Model):
 
 class Anticipo(models.Model):
     of_id = models.ForeignKey('OrdenFabricacion', on_delete=models.CASCADE, related_name='anticipos', db_column='of_id')
-    cliente = models.CharField(max_length=255)
     monto_estimado = models.FloatField(default=0.0)
     estado = models.CharField(max_length=50, default="pendiente")
     pagado = models.BooleanField(default=False)

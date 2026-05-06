@@ -1,8 +1,8 @@
 from django.db import models
 
+
 class Despacho(models.Model):
     lote_id = models.ForeignKey('produccion.Lote', on_delete=models.CASCADE, db_column='lote_id')
-    of_id = models.ForeignKey('comercial.OrdenFabricacion', null=True, blank=True, on_delete=models.SET_NULL, db_column='of_id')
     destino = models.CharField(max_length=255)
     transportista = models.CharField(max_length=255, blank=True, default="")
     estado = models.CharField(max_length=50, default="pendiente")

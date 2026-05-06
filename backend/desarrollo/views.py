@@ -27,7 +27,7 @@ class DesarrolloViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='ordenes-disponibles')
     def ordenes_disponibles(self, request):
-        ordenes = OrdenFabricacion.objects.filter(estado="aprobada")
+        ordenes = OrdenFabricacion.objects.filter(estado="aprobada").order_by('-created_at')
         serializer = OrdenFabricacionSerializer(ordenes, many=True)
         return Response({"data": serializer.data})
 
@@ -49,7 +49,6 @@ class DesarrolloViewSet(viewsets.ViewSet):
         )
 
         oc = OrdenCompra.objects.create(
-            of_id_id=of_id,
             pm_id=pedido,
             estado="emitida"
         )
@@ -74,7 +73,7 @@ class DesarrolloViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='pedidos-material')
     def list_pedidos_material(self, request):
-        pedidos = PedidoMaterial.objects.all()
+        pedidos = PedidoMaterial.objects.all().order_by('-created_at')
         return Response({"data": PedidoMaterialSerializer(pedidos, many=True).data})
 
     @extend_schema(request=None, responses={200: dict})
@@ -121,7 +120,7 @@ class DesarrolloViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='planos')
     def list_planos(self, request):
-        planos = Plano.objects.all()
+        planos = Plano.objects.all().order_by('-created_at')
         return Response({
             "data": [
                 {

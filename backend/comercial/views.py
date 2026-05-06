@@ -19,7 +19,7 @@ def _fue_modificado(created, updated) -> bool:
 from drf_spectacular.utils import extend_schema
 
 class OrdenFabricacionViewSet(viewsets.ModelViewSet):
-    queryset = OrdenFabricacion.objects.all()
+    queryset = OrdenFabricacion.objects.all().order_by('-created_at')
     serializer_class = OrdenFabricacionSerializer
 
     def list(self, request, *args, **kwargs):
@@ -49,7 +49,6 @@ class OrdenFabricacionViewSet(viewsets.ModelViewSet):
 
         anticipo = Anticipo.objects.create(
             of_id=orden,
-            cliente=orden.cliente,
             monto_estimado=orden.monto_anticipo,
             estado='pendiente',
             pagado=False

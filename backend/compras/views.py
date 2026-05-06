@@ -9,12 +9,13 @@ from .serializers import ProveedorSerializer, InsumoSerializer, FacturaCompraSer
 from desarrollo.serializers import PedidoMaterialSerializer
 from django.db import transaction
 
+
 class ComprasViewSet(viewsets.ViewSet):
 
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='pedidos-material')
     def list_pedidos_pendientes(self, request):
-        pedidos = PedidoMaterial.objects.filter(estado="generado")
+        pedidos = PedidoMaterial.objects.filter(estado="generado").order_by('-created_at')
         return Response({"data": PedidoMaterialSerializer(pedidos, many=True).data})
 
     @extend_schema(request=None, responses={200: dict})
@@ -53,48 +54,49 @@ class ComprasViewSet(viewsets.ViewSet):
     def registrar_factura(self, request):
         data = request.data
         pedido_id = data.get('pedido_material_id')
-        
+
         try:
             pedido = PedidoMaterial.objects.get(id=pedido_id)
         except PedidoMaterial.DoesNotExist:
             raise NotFound(f"Pedido de material {pedido_id} no encontrado en Desarrollo")
-            
+
         if pedido.estado == "facturado":
             raise ValidationError(f"Pedido {pedido_id} ya fue facturado")
 
-        materiales = data.get('materiales', [])
-        
-        header_proveedor = materiales[0].get('proveedor', 'Varios') if materiales else "Varios"
-        if len(set([m.get('proveedor', '') for m in materiales])) > 1:
-            header_proveedor = "Varios"
+        materiales_data = data.get('materiales', [])
 
+        insumo_cache = {}
+        proveedor_cache = {}
         monto_total = 0.0
-        for m in materiales:
+
+        for m in materiales_data:
             monto_total += float(m.get('cantidad', 0)) * float(m.get('precio_unitario', 0))
 
             nombre_insumo = m.get('nombre')
-            if not Insumo.objects.filter(nombre=nombre_insumo).exists():
-                Insumo.objects.create(nombre=nombre_insumo)
+            if nombre_insumo not in insumo_cache:
+                insumo_obj, _ = Insumo.objects.get_or_create(nombre=nombre_insumo)
+                insumo_cache[nombre_insumo] = insumo_obj
 
-            proveedor_nombre = m.get('proveedor')
-            if proveedor_nombre and not Proveedor.objects.filter(nombre=proveedor_nombre).exists():
-                Proveedor.objects.create(nombre=proveedor_nombre)
+            proveedor_nombre = m.get('proveedor', '')
+            if proveedor_nombre and proveedor_nombre not in proveedor_cache:
+                proveedor_obj, _ = Proveedor.objects.get_or_create(nombre=proveedor_nombre)
+                proveedor_cache[proveedor_nombre] = proveedor_obj
 
         factura = FacturaCompra.objects.create(
             pedido_material_id=pedido,
-            proveedor=header_proveedor,
             monto_total=monto_total,
             estado="registrada"
         )
 
-        for m in materiales:
+        for m in materiales_data:
+            proveedor_nombre = m.get('proveedor', '')
             MaterialCompra.objects.create(
                 factura_id=factura,
-                nombre=m.get('nombre'),
+                insumo=insumo_cache[m.get('nombre')],
                 cantidad=m.get('cantidad'),
                 precio_unitario=m.get('precio_unitario'),
                 unidad_medida=m.get('unidad_medida', 'unidades'),
-                proveedor=m.get('proveedor', '')
+                proveedor=proveedor_cache.get(proveedor_nombre)
             )
 
         pedido.estado = "facturado"
@@ -108,5 +110,5 @@ class ComprasViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='facturas')
     def list_facturas(self, request):
-        facturas = FacturaCompra.objects.all()
+        facturas = FacturaCompra.objects.prefetch_related('materiales__insumo', 'materiales__proveedor').all().order_by('-created_at')
         return Response({"data": FacturaCompraSerializer(facturas, many=True).data})

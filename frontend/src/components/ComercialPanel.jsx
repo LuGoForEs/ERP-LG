@@ -133,6 +133,8 @@ export default function ComercialPanel() {
                 <FunnelStep label="Cerrado" value={ordenes.length} width="w-[30%]" opacity="bg-secondary/60" textColor="text-background" isBottom />
               </div>
             </div>
+          </div>
+        </div>
 
             {/* Recent Orders Table */}
             <div className="lg:col-span-2 bg-surface-container border border-outline-variant rounded-xl flex flex-col overflow-hidden shadow-lg">

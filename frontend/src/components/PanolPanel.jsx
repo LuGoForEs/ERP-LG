@@ -9,7 +9,11 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle,
-  X
+  X,
+  Search,
+  XCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 
 const API_BASE = '/api/v1'
@@ -24,6 +28,12 @@ export default function PanolPanel() {
   const [loadingDespacho, setLoadingDespacho] = useState(false)
 
   const [facturaId, setFacturaId] = useState('')
+  const [facturaDetalle, setFacturaDetalle] = useState(null)
+  const [loadingFactura, setLoadingFactura] = useState(false)
+  const [verificacionEstado, setVerificacionEstado] = useState('conforme')
+  const [verificacionNotas, setVerificacionNotas] = useState('')
+  const [mostrarPdf, setMostrarPdf] = useState(false)
+
   const [ofId, setOfId] = useState('')
   const [materiales, setMateriales] = useState([{ nombre: '', cantidad: '' }])
 
@@ -73,6 +83,28 @@ export default function PanolPanel() {
     fetchMovimientos()
   }, [])
 
+  const handleBuscarFactura = async () => {
+    if (!facturaId) return
+    setLoadingFactura(true)
+    setFacturaDetalle(null)
+    setMostrarPdf(false)
+    setVerificacionEstado('conforme')
+    setVerificacionNotas('')
+    try {
+      const res = await fetch(`${API_BASE}/compras/facturas/${facturaId}`)
+      const result = await res.json()
+      if (res.ok) {
+        setFacturaDetalle(result.data)
+      } else {
+        showMessage('error', result.detail || `Factura ${facturaId} no encontrada`)
+      }
+    } catch {
+      showMessage('error', 'Error de red al buscar la factura')
+    } finally {
+      setLoadingFactura(false)
+    }
+  }
+
   const handleRegistrarIngreso = async () => {
     if (!facturaId) return
     setLoadingIngreso(true)
@@ -80,12 +112,20 @@ export default function PanolPanel() {
       const res = await fetch(`${API_BASE}/panol/ingresos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ factura_id: parseInt(facturaId, 10) })
+        body: JSON.stringify({
+          factura_id: parseInt(facturaId, 10),
+          verificacion_estado: verificacionEstado,
+          verificacion_notas: verificacionNotas,
+        }),
       })
       const result = await res.json()
       if (res.ok) {
         showMessage('success', result.message || 'Ingreso registrado con éxito')
         setFacturaId('')
+        setFacturaDetalle(null)
+        setMostrarPdf(false)
+        setVerificacionEstado('conforme')
+        setVerificacionNotas('')
         await Promise.all([fetchStock(), fetchIngresos()])
       } else {
         showMessage('error', result.detail || 'Error al registrar el ingreso')
@@ -248,30 +288,158 @@ export default function PanolPanel() {
             </h3>
 
             <div className="space-y-4 relative z-10">
+              {/* Búsqueda de factura */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em]">
                   Factura ID
                 </label>
-                <input
-                  type="number"
-                  placeholder="Nro. de factura..."
-                  min="1"
-                  className="w-full bg-surface-container-high border border-outline-variant rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface"
-                  value={facturaId}
-                  onChange={(e) => setFacturaId(e.target.value)}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    placeholder="Nro. de factura..."
+                    min="1"
+                    className="flex-1 bg-surface-container-high border border-outline-variant rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface"
+                    value={facturaId}
+                    onChange={(e) => { setFacturaId(e.target.value); setFacturaDetalle(null); }}
+                  />
+                  <button
+                    onClick={handleBuscarFactura}
+                    disabled={!facturaId || loadingFactura}
+                    className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary rounded-lg text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {loadingFactura ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                    Buscar
+                  </button>
+                </div>
               </div>
 
-              <button
-                onClick={handleRegistrarIngreso}
-                disabled={!facturaId || loadingIngreso}
-                className="w-full py-3 bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs rounded-xl transition-all shadow-lg shadow-primary/20 active:scale-95 disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2"
-              >
-                {loadingIngreso
-                  ? <Loader2 size={14} className="animate-spin" />
-                  : <ArrowRight size={14} />}
-                REGISTRAR INGRESO
-              </button>
+              {/* Detalle de factura */}
+              {facturaDetalle && (
+                <div className="space-y-4 animate-in fade-in duration-300">
+                  {/* Header + tabla de ítems */}
+                  <div className="bg-background/40 border border-outline-variant rounded-xl p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-xs font-black text-primary">FAC-{facturaDetalle.id}</span>
+                        <span className="ml-2 text-[10px] text-outline">PM-{facturaDetalle.pedido_material_id}</span>
+                      </div>
+                      <span className="text-sm font-black text-secondary">
+                        ${parseFloat(facturaDetalle.monto_total).toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-outline">
+                      Proveedor: <span className="text-on-surface font-medium">{facturaDetalle.proveedor}</span>
+                    </p>
+
+                    <div className="rounded-lg overflow-hidden border border-outline-variant">
+                      <table className="w-full text-left text-[10px]">
+                        <thead>
+                          <tr className="bg-background/50 text-outline font-black uppercase tracking-widest">
+                            <th className="px-3 py-2">Insumo</th>
+                            <th className="px-3 py-2 text-right">Cant.</th>
+                            <th className="px-3 py-2">Unidad</th>
+                            <th className="px-3 py-2 text-right">P. Unit.</th>
+                            <th className="px-3 py-2">Proveedor</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-outline-variant/30">
+                          {facturaDetalle.materiales?.map((m, i) => (
+                            <tr key={i} className="text-on-surface">
+                              <td className="px-3 py-2 font-medium">{m.nombre}</td>
+                              <td className="px-3 py-2 text-right">{m.cantidad}</td>
+                              <td className="px-3 py-2 text-outline">{m.unidad_medida}</td>
+                              <td className="px-3 py-2 text-right text-secondary font-bold">
+                                ${parseFloat(m.precio_unitario).toLocaleString('es-AR')}
+                              </td>
+                              <td className="px-3 py-2 text-outline">{m.proveedor}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* PDF Viewer */}
+                  {facturaDetalle.pdf_archivo?.datos && (
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setMostrarPdf(!mostrarPdf)}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-surface-container-high border border-outline-variant hover:border-primary/40 rounded-lg text-[10px] font-black text-outline hover:text-primary uppercase tracking-widest transition-all"
+                      >
+                        {mostrarPdf ? <EyeOff size={14} /> : <Eye size={14} />}
+                        {mostrarPdf ? 'Ocultar PDF' : 'Ver PDF adjunto'}
+                        <span className="text-[9px] font-medium normal-case opacity-60">
+                          ({facturaDetalle.pdf_archivo.nombre})
+                        </span>
+                      </button>
+                      {mostrarPdf && (
+                        <div className="rounded-xl overflow-hidden border border-outline-variant">
+                          <iframe
+                            src={`data:application/pdf;base64,${facturaDetalle.pdf_archivo.datos}`}
+                            className="w-full"
+                            style={{ height: '420px' }}
+                            title="PDF de Factura"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Verificación */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-black text-outline uppercase tracking-[0.2em]">
+                      Verificación de Entrega
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => setVerificacionEstado('conforme')}
+                        className={`py-3 rounded-xl border font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                          verificacionEstado === 'conforme'
+                            ? 'bg-secondary/20 border-secondary text-secondary shadow-lg shadow-secondary/10'
+                            : 'bg-surface-container-high border-outline-variant text-outline hover:border-secondary/40 hover:text-secondary'
+                        }`}
+                      >
+                        <CheckCircle size={16} />
+                        Conforme
+                      </button>
+                      <button
+                        onClick={() => setVerificacionEstado('no_conforme')}
+                        className={`py-3 rounded-xl border font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                          verificacionEstado === 'no_conforme'
+                            ? 'bg-error/20 border-error text-error shadow-lg shadow-error/10'
+                            : 'bg-surface-container-high border-outline-variant text-outline hover:border-error/40 hover:text-error'
+                        }`}
+                      >
+                        <XCircle size={16} />
+                        No conforme
+                      </button>
+                    </div>
+
+                    {verificacionEstado === 'no_conforme' && (
+                      <textarea
+                        value={verificacionNotas}
+                        onChange={(e) => setVerificacionNotas(e.target.value)}
+                        placeholder="Describir la discrepancia encontrada en la entrega..."
+                        rows={3}
+                        className="w-full bg-surface-container-high border border-error/30 rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-error transition-all text-on-surface resize-none"
+                      />
+                    )}
+                  </div>
+
+                  <button
+                    onClick={handleRegistrarIngreso}
+                    disabled={loadingIngreso}
+                    className={`w-full py-3 font-bold text-xs rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2 ${
+                      verificacionEstado === 'conforme'
+                        ? 'bg-primary hover:bg-primary/90 text-on-primary shadow-primary/20'
+                        : 'bg-error hover:bg-error/90 text-white shadow-error/20'
+                    }`}
+                  >
+                    {loadingIngreso ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+                    {verificacionEstado === 'conforme' ? 'REGISTRAR INGRESO AL STOCK' : 'REGISTRAR NO CONFORMIDAD'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -300,11 +468,11 @@ export default function PanolPanel() {
                         </span>
                       </div>
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                        ing.estado === 'procesado'
-                          ? 'bg-secondary/10 text-secondary border-secondary/20'
-                          : 'bg-primary/10 text-primary border-primary/20'
+                        ing.verificacion_estado === 'no_conforme'
+                          ? 'bg-error/10 text-error border-error/20'
+                          : 'bg-secondary/10 text-secondary border-secondary/20'
                       }`}>
-                        {ing.estado}
+                        {ing.verificacion_estado || ing.estado}
                       </span>
                     </div>
                     {ing.materiales && ing.materiales.length > 0 && (
@@ -323,6 +491,11 @@ export default function PanolPanel() {
                           </li>
                         ))}
                       </ul>
+                    )}
+                    {ing.verificacion_notas && (
+                      <p className="mt-2 text-[10px] text-error bg-error/5 rounded-lg px-2 py-1 border border-error/10">
+                        Nota: {ing.verificacion_notas}
+                      </p>
                     )}
                   </div>
                 ))

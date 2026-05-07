@@ -29,6 +29,9 @@ class PanolViewSet(viewsets.ViewSet):
     @transaction.atomic
     def registrar_ingreso(self, request):
         factura_id = request.data.get('factura_id')
+        verificacion_estado = request.data.get('verificacion_estado', 'conforme')
+        verificacion_notas = request.data.get('verificacion_notas', '')
+
         try:
             factura = FacturaCompra.objects.get(id=factura_id)
         except FacturaCompra.DoesNotExist:
@@ -43,10 +46,18 @@ class PanolViewSet(viewsets.ViewSet):
             for m in materiales
         ]
 
-        for m in materiales:
-            _ajustar_stock(m.insumo, float(m.cantidad))
+        # Solo actualiza stock si la entrega fue conforme
+        if verificacion_estado == 'conforme':
+            for m in materiales:
+                _ajustar_stock(m.insumo, float(m.cantidad))
 
-        ingreso = Ingreso.objects.create(factura_id=factura, estado="ingresado", snapshot=snapshot)
+        ingreso = Ingreso.objects.create(
+            factura_id=factura,
+            estado="ingresado",
+            snapshot=snapshot,
+            verificacion_estado=verificacion_estado,
+            verificacion_notas=verificacion_notas,
+        )
 
         factura.estado = "ingresada"
         factura.save()
@@ -54,14 +65,18 @@ class PanolViewSet(viewsets.ViewSet):
         stocks = Stock.objects.select_related('insumo').all()
         stock_dict = {s.insumo.nombre: s.cantidad for s in stocks}
 
+        mensaje = "Materiales ingresados al stock" if verificacion_estado == 'conforme' else "Entrega registrada como no conforme — stock no modificado"
+
         return Response({
-            "message": "Materiales ingresados al stock",
+            "message": mensaje,
             "data": {
                 "ingreso": {
                     "id": ingreso.id,
                     "factura_id": ingreso.factura_id.id,
                     "materiales": ingreso.snapshot,
                     "estado": ingreso.estado,
+                    "verificacion_estado": ingreso.verificacion_estado,
+                    "verificacion_notas": ingreso.verificacion_notas,
                 },
                 "stock_actualizado": stock_dict,
             }
@@ -78,6 +93,8 @@ class PanolViewSet(viewsets.ViewSet):
                     "factura_id": i.factura_id.id,
                     "materiales": i.snapshot or [],
                     "estado": i.estado,
+                    "verificacion_estado": i.verificacion_estado,
+                    "verificacion_notas": i.verificacion_notas,
                 }
                 for i in ingresos
             ]

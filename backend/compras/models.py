@@ -12,6 +12,9 @@ class Proveedor(models.Model):
 
 class Insumo(models.Model):
     nombre = models.CharField(max_length=255, unique=True, db_index=True)
+    categoria = models.CharField(max_length=100, blank=True, default='')
+    subcategoria = models.CharField(max_length=100, blank=True, default='')
+    unidad = models.CharField(max_length=20, blank=True, default='u')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -25,6 +28,7 @@ class FacturaCompra(models.Model):
     )
     monto_total = models.FloatField(default=0.0)
     estado = models.CharField(max_length=50, default="registrada")
+    pdf_archivo = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

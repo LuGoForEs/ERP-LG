@@ -11,7 +11,7 @@ class ProveedorSerializer(serializers.ModelSerializer):
 class InsumoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Insumo
-        fields = ['id', 'nombre']
+        fields = ['id', 'nombre', 'categoria', 'subcategoria', 'unidad']
 
 
 class MaterialCompraSerializer(serializers.ModelSerializer):
@@ -19,7 +19,7 @@ class MaterialCompraSerializer(serializers.ModelSerializer):
     proveedor = serializers.SerializerMethodField()
 
     def get_nombre(self, obj):
-        return obj.insumo.nombre
+        return obj.insumo.nombre if obj.insumo else ''
 
     def get_proveedor(self, obj):
         return obj.proveedor.nombre if obj.proveedor else ''
@@ -38,4 +38,4 @@ class FacturaCompraSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FacturaCompra
-        fields = ['id', 'pedido_material_id', 'proveedor', 'monto_total', 'estado', 'materiales']
+        fields = ['id', 'pedido_material_id', 'proveedor', 'monto_total', 'estado', 'pdf_archivo', 'materiales']

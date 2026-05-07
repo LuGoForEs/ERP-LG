@@ -5,6 +5,8 @@ class Ingreso(models.Model):
     factura_id = models.ForeignKey('compras.FacturaCompra', on_delete=models.CASCADE, db_column='factura_id')
     estado = models.CharField(max_length=50, default="ingresado")
     snapshot = models.JSONField(null=True, blank=True)
+    verificacion_estado = models.CharField(max_length=50, default="conforme")
+    verificacion_notas = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

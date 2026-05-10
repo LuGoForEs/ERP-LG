@@ -24,8 +24,14 @@ class OrdenFabricacionViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({"data": serializer.data})
+        anticipos = {a.of_id_id: a for a in Anticipo.objects.all()}
+        result = []
+        for o in queryset:
+            data = OrdenFabricacionSerializer(o).data
+            a = anticipos.get(o.id)
+            data['anticipo'] = AnticipoSerializer(a).data if a else None
+            result.append(data)
+        return Response({"data": result})
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()

@@ -10,12 +10,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='ordencompra',
-            name='of_id',
+        migrations.RunSQL(
+            "ALTER TABLE ordenes_compra DROP FOREIGN KEY IF EXISTS ordenes_compra_of_id_4fe23df4_fk_ordenes_fabricacion_id",
+            reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
-            "ALTER TABLE pedidos_material ALTER COLUMN fecha DROP NOT NULL",
+            "ALTER TABLE ordenes_compra DROP COLUMN IF EXISTS of_id",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
+        migrations.RunSQL(
+            "ALTER TABLE pedidos_material MODIFY COLUMN fecha DATE NULL",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
@@ -23,7 +27,7 @@ class Migration(migrations.Migration):
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
-            "ALTER TABLE pedidos_material_items ALTER COLUMN oc_fecha DROP NOT NULL",
+            "ALTER TABLE pedidos_material_items MODIFY COLUMN oc_fecha DATE NULL",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(

@@ -277,3 +277,17 @@ class ComprasViewSet(viewsets.ViewSet):
     def list_facturas(self, request):
         facturas = FacturaCompra.objects.prefetch_related('materiales__insumo', 'materiales__proveedor').all().order_by('-created_at')
         return Response({"data": FacturaCompraSerializer(facturas, many=True).data})
+
+    @extend_schema(responses={200: bytes})
+    def download_factura_pdf(self, request, pk=None):
+        try:
+            factura = FacturaCompra.objects.get(id=pk)
+        except FacturaCompra.DoesNotExist:
+            raise NotFound(f"Factura {pk} no encontrada")
+        if not factura.pdf_archivo or not factura.pdf_archivo.get('datos'):
+            raise NotFound("Esta factura no tiene PDF adjunto")
+        pdf_bytes = base64.b64decode(factura.pdf_archivo['datos'])
+        nombre = factura.pdf_archivo.get('nombre', f'factura_{pk}.pdf')
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{nombre}"'
+        return response

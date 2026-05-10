@@ -1,10 +1,12 @@
+import json
+
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError, NotFound
 from drf_spectacular.utils import extend_schema
 from .models import Stock, Ingreso, Movimiento, MovimientoItem
-from compras.models import FacturaCompra, Insumo
+from compras.models import FacturaCompra, MaterialCompra, Insumo, Proveedor
 from .serializers import IngresoSerializer, MovimientoSerializer
 from django.db import transaction
 
@@ -31,6 +33,8 @@ class PanolViewSet(viewsets.ViewSet):
         factura_id = request.data.get('factura_id')
         verificacion_estado = request.data.get('verificacion_estado', 'conforme')
         verificacion_notas = request.data.get('verificacion_notas', '')
+        faltantes_raw = request.data.get('faltantes', [])
+        faltantes_data = json.loads(faltantes_raw) if isinstance(faltantes_raw, str) else faltantes_raw
 
         try:
             factura = FacturaCompra.objects.get(id=factura_id)
@@ -40,7 +44,7 @@ class PanolViewSet(viewsets.ViewSet):
         if factura.estado == "ingresada":
             raise ValidationError(f"Factura {factura_id} ya fue ingresada al stock")
 
-        materiales = factura.materiales.select_related('insumo').all()
+        materiales = factura.materiales.select_related('insumo', 'proveedor').all()
         snapshot = [
             {"nombre": m.insumo.nombre, "cantidad": m.cantidad, "precio_unitario": m.precio_unitario}
             for m in materiales
@@ -65,7 +69,35 @@ class PanolViewSet(viewsets.ViewSet):
         stocks = Stock.objects.select_related('insumo').all()
         stock_dict = {s.insumo.nombre: s.cantidad for s in stocks}
 
-        mensaje = "Materiales ingresados al stock" if verificacion_estado == 'conforme' else "Entrega registrada como no conforme — stock no modificado"
+        # Si no conforme y hay faltantes, crear nueva OC de reposición
+        nueva_oc_id = None
+        if verificacion_estado == 'no_conforme' and faltantes_data:
+            nueva_oc = FacturaCompra.objects.create(
+                pedido_material_id=None,
+                monto_total=0.0,
+                estado='registrada',
+            )
+            for f in faltantes_data:
+                insumo_obj, _ = Insumo.objects.get_or_create(nombre=f.get('nombre'))
+                proveedor_nombre = f.get('proveedor', '')
+                proveedor_obj = None
+                if proveedor_nombre:
+                    proveedor_obj, _ = Proveedor.objects.get_or_create(nombre=proveedor_nombre)
+                MaterialCompra.objects.create(
+                    factura_id=nueva_oc,
+                    insumo=insumo_obj,
+                    cantidad=float(f.get('cantidad', 0)),
+                    precio_unitario=0.0,
+                    unidad_medida=f.get('unidad_medida', 'u'),
+                    proveedor=proveedor_obj,
+                )
+            nueva_oc_id = nueva_oc.id
+
+        mensaje = (
+            "Materiales ingresados al stock" if verificacion_estado == 'conforme'
+            else f"Entrega no conforme — OC-{nueva_oc_id} de reposición generada" if nueva_oc_id
+            else "Entrega registrada como no conforme — stock no modificado"
+        )
 
         return Response({
             "message": mensaje,
@@ -78,6 +110,7 @@ class PanolViewSet(viewsets.ViewSet):
                     "verificacion_estado": ingreso.verificacion_estado,
                     "verificacion_notas": ingreso.verificacion_notas,
                 },
+                "nueva_oc_id": nueva_oc_id,
                 "stock_actualizado": stock_dict,
             }
         })

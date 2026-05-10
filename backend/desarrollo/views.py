@@ -7,6 +7,7 @@ from .models import PedidoMaterial, OrdenCompra, PedidoMaterialItem, Plano
 from comercial.models import OrdenFabricacion, Anticipo
 from .serializers import PedidoMaterialSerializer, OrdenFabricacionSerializer, PlanoSerializer
 from django.db import transaction
+from django.http import FileResponse
 
 ALLOWED_MIME_TYPES = {"application/pdf"}
 
@@ -99,6 +100,7 @@ class DesarrolloViewSet(viewsets.ViewSet):
             archivo_nombre=archivo.name,
             archivo_tipo=archivo.content_type,
             archivo_tamanio=archivo.size,
+            archivo=archivo,
             estado="enviado"
         )
 
@@ -116,6 +118,18 @@ class DesarrolloViewSet(viewsets.ViewSet):
                 "estado": plano.estado,
             }
         })
+
+    @extend_schema(responses={200: bytes})
+    def download_plano(self, request, pk=None):
+        try:
+            plano = Plano.objects.get(pk=pk)
+        except Plano.DoesNotExist:
+            raise NotFound("Plano no encontrado")
+        if not plano.archivo:
+            raise NotFound("Archivo no disponible para este plano")
+        response = FileResponse(plano.archivo.open('rb'), content_type=plano.archivo_tipo or 'application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{plano.archivo_nombre}"'
+        return response
 
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='planos')

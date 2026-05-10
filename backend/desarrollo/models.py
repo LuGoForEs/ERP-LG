@@ -44,6 +44,7 @@ class Plano(models.Model):
     archivo_nombre = models.CharField(max_length=255)
     archivo_tipo = models.CharField(max_length=100)
     archivo_tamanio = models.IntegerField()
+    archivo = models.FileField(upload_to='planos/', null=True, blank=True)
     estado = models.CharField(max_length=50, default="enviado")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

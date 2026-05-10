@@ -24,7 +24,8 @@ class Insumo(models.Model):
 
 class FacturaCompra(models.Model):
     pedido_material_id = models.ForeignKey(
-        'desarrollo.PedidoMaterial', on_delete=models.CASCADE, db_column='pedido_material_id'
+        'desarrollo.PedidoMaterial', on_delete=models.CASCADE,
+        null=True, blank=True, db_column='pedido_material_id'
     )
     monto_total = models.FloatField(default=0.0)
     estado = models.CharField(max_length=50, default="registrada")

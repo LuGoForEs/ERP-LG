@@ -13,4 +13,5 @@ urlpatterns = [
     path('insumos', ComprasViewSet.as_view({'get': 'list_insumos', 'post': 'create_insumo'})),
     path('facturas', ComprasViewSet.as_view({'get': 'list_facturas', 'post': 'registrar_factura'})),
     path('facturas/<int:pk>', ComprasViewSet.as_view({'get': 'get_factura'})),
+    path('facturas/<int:pk>/pdf', ComprasViewSet.as_view({'get': 'download_factura_pdf'})),
 ]

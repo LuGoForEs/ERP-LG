@@ -20,3 +20,9 @@ node_modules/
 .promptops-assets/
 
 /ClasesDeProgramacion
+
+# Production env & runtime
+.env.prod
+venv/
+backend/staticfiles/
+frontend/dist/

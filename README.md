@@ -110,11 +110,18 @@ pnpm install
 npx playwright test
 ```
 
-## Seguridad (planificado)
+## Seguridad
 
-- Autenticacion con JWT (SimpleJWT)
-- Autorizacion por roles (RBAC) basada en dominios
-- Audit trail con trazabilidad de cambios
+- Autenticación implementada (Login, 2FA, JWT).
+- Autorización por roles (RBAC) basada en dominios.
+- Aplicación dedicada `auth_erp`.
+
+## Actualizaciones Recientes (Mayo 2026)
+
+- **Seguridad**: Implementación completa de Autenticación, incluyendo Login, 2FA y JWT mediante la nueva app `auth_erp`.
+- **Infraestructura**: Se añadieron archivos de configuración para el entorno de producción (`Dockerfile` para frontend y backend, `docker-compose.prod.yml` y configuración de `nginx.conf`).
+- **Backend**: Actualización y refactorización de los módulos principales (Comercial, Compras, Desarrollo, Pañol, Producción).
+- **Frontend**: Integración de autenticación en la interfaz, nuevos paneles y mock de datos, y actualización general de componentes UI usando TailwindCSS (safelist y primitives).
 
 ## Licencia
 

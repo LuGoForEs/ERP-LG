@@ -14,3 +14,7 @@ factory-boy>=3.3
 ruff>=0.5
 gunicorn>=22.0
 whitenoise>=6.7
+pyotp>=2.9
+qrcode[pil]>=7.4
+Pillow>=10.0
+requests>=2.31

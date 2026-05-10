@@ -1,0 +1,66 @@
+services:
+  database:
+    image: mariadb:10.11
+    restart: always
+    env_file: .env.prod
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    env_file: .env.prod
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: mysql://${DB_USER}:${DB_PASSWORD}@database:3306/${DB_NAME}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY}
+    ports:
+      - "8000:8000"
+    volumes:
+      - media_files:/app/media
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - erp-network
+    command: >
+      sh -c "python manage.py migrate &&
+             gunicorn --workers 3 --bind 0.0.0.0:8000 config.wsgi:application"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY}
+    restart: always
+    ports:
+      - "3000:80"
+    networks:
+      - erp-network
+
+volumes:
+  db_data:
+  media_files:
+
+networks:
+  erp-network:
+    driver: bridge

@@ -1,673 +1,542 @@
-import { useState, useEffect } from 'react'
+import React from 'react';
+import { api } from '../api';
 import {
-  Loader2,
-  Package,
-  TrendingUp,
-  ArrowRight,
-  Plus,
-  Trash2,
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle,
-  X,
-  Search,
-  XCircle,
-  Eye,
-  EyeOff,
-} from 'lucide-react'
-
-const API_BASE = '/api/v1'
+  cx, Icon, Button, Input, Select, Field,
+  Badge, Card, CardHeader, CardTitle,
+  Metric, useToast, Tabs, useSearchShortcut,
+  EmptyState, DataTable, ModuleHeader,
+} from './primitives';
+import { useSharedArticulos, ArticuloForm, V2_EMPTY_ARTICULO, articuloIsValid } from '../contexts/ArticulosContext';
 
 export default function PanolPanel() {
-  const [stock, setStock] = useState({})
-  const [ingresos, setIngresos] = useState([])
-  const [movimientos, setMovimientos] = useState([])
+  const { articulos, create: createArticulo } = useSharedArticulos();
+  const [stock, setStock] = React.useState({});
+  const [ingresos, setIngresos] = React.useState([]);
+  const [movimientos, setMovimientos] = React.useState([]);
+  const [facturasPendientes, setFacturasPendientes] = React.useState([]);
+  const [ofsAprobadas, setOfsAprobadas] = React.useState([]);
+  const [tab, setTab] = React.useState('stock');
+  const [tipoMov, setTipoMov] = React.useState('ingreso');
+  // ingreso form
+  const [facturaId, setFacturaId] = React.useState('');
+  const [verificacion, setVerificacion] = React.useState('conforme');
+  const [notasVerif, setNotasVerif] = React.useState('');
+  const [faltantesQty, setFaltantesQty] = React.useState({});
+  // despacho form
+  const [ofId, setOfId] = React.useState('');
+  const [matItems, setMatItems] = React.useState([{ nombre: '', cantidad: '' }]);
+  // catalogo
+  const [artForm, setArtForm] = React.useState({ ...V2_EMPTY_ARTICULO });
+  const [artFilter, setArtFilter] = React.useState('');
+  const [stockSearch, setStockSearch] = React.useState('');
+  const [selectedMov, setSelectedMov] = React.useState(null);
+  const stockSearchRef = React.useRef(null);
+  useSearchShortcut(stockSearchRef, () => setStockSearch(''));
+  const [saving, setSaving] = React.useState(false);
 
-  const [loadingStock, setLoadingStock] = useState(false)
-  const [loadingIngreso, setLoadingIngreso] = useState(false)
-  const [loadingDespacho, setLoadingDespacho] = useState(false)
+  // 1/2 → tabs; I/D → modo ingreso/despacho
+  React.useEffect(() => {
+    const handler = (e) => {
+      const tag = e.target.tagName?.toLowerCase();
+      if (['input', 'textarea', 'select'].includes(tag) || e.target.isContentEditable) return;
+      if (e.key === '1') setTab('stock');
+      else if (e.key === '2') setTab('catalogo');
+      else if (e.key === 'i') setTipoMov('ingreso');
+      else if (e.key === 'd') setTipoMov('despacho');
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+  const toast = useToast();
 
-  const [facturaId, setFacturaId] = useState('')
-  const [facturaDetalle, setFacturaDetalle] = useState(null)
-  const [loadingFactura, setLoadingFactura] = useState(false)
-  const [verificacionEstado, setVerificacionEstado] = useState('conforme')
-  const [verificacionNotas, setVerificacionNotas] = useState('')
-  const [mostrarPdf, setMostrarPdf] = useState(false)
-
-  const [ofId, setOfId] = useState('')
-  const [materiales, setMateriales] = useState([{ nombre: '', cantidad: '' }])
-
-  const [message, setMessage] = useState(null)
-
-  const showMessage = (type, text) => {
-    setMessage({ type, text })
-    setTimeout(() => setMessage(null), 5000)
-  }
-
-  const fetchStock = async () => {
-    setLoadingStock(true)
+  const load = React.useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/panol/stock`)
-      const data = await res.json()
-      setStock(data.data || {})
-    } catch {
-      showMessage('error', 'Error al cargar el stock')
-    } finally {
-      setLoadingStock(false)
+      const [stockData, ingresosData, movsData, facturasData, ofsData] = await Promise.all([
+        api.panol.getStock(),
+        api.panol.getIngresos(),
+        api.panol.getMovimientos(),
+        api.compras.getFacturas(),
+        api.desarrollo.getOFsDisponibles(),
+      ]);
+      setStock(stockData);
+      setIngresos(ingresosData);
+      setMovimientos(movsData);
+      setFacturasPendientes(facturasData.filter(f => f.estado === 'registrada'));
+      setOfsAprobadas(ofsData);
+    } catch (e) {
+      toast({ type: 'error', msg: e.message });
     }
-  }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchIngresos = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/panol/ingresos`)
-      const data = await res.json()
-      setIngresos(data.data || [])
-    } catch {
-      console.error('Error al cargar ingresos')
-    }
-  }
+  React.useEffect(() => { load(); }, [load]);
 
-  const fetchMovimientos = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/panol/movimientos`)
-      const data = await res.json()
-      setMovimientos(data.data || [])
-    } catch {
-      console.error('Error al cargar movimientos')
-    }
-  }
-
-  useEffect(() => {
-    fetchStock()
-    fetchIngresos()
-    fetchMovimientos()
-  }, [])
-
-  const handleBuscarFactura = async () => {
-    if (!facturaId) return
-    setLoadingFactura(true)
-    setFacturaDetalle(null)
-    setMostrarPdf(false)
-    setVerificacionEstado('conforme')
-    setVerificacionNotas('')
-    try {
-      const res = await fetch(`${API_BASE}/compras/facturas/${facturaId}`)
-      const result = await res.json()
-      if (res.ok) {
-        setFacturaDetalle(result.data)
-      } else {
-        showMessage('error', result.detail || `Factura ${facturaId} no encontrada`)
-      }
-    } catch {
-      showMessage('error', 'Error de red al buscar la factura')
-    } finally {
-      setLoadingFactura(false)
-    }
-  }
+  const stockRows = Object.entries(stock).map(([material, stock_actual], i) => ({
+    id: i+1, material, stock_actual,
+  }));
 
   const handleRegistrarIngreso = async () => {
-    if (!facturaId) return
-    setLoadingIngreso(true)
+    if (!facturaId) return;
+    setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/panol/ingresos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          factura_id: parseInt(facturaId, 10),
-          verificacion_estado: verificacionEstado,
-          verificacion_notas: verificacionNotas,
-        }),
-      })
-      const result = await res.json()
-      if (res.ok) {
-        showMessage('success', result.message || 'Ingreso registrado con éxito')
-        setFacturaId('')
-        setFacturaDetalle(null)
-        setMostrarPdf(false)
-        setVerificacionEstado('conforme')
-        setVerificacionNotas('')
-        await Promise.all([fetchStock(), fetchIngresos()])
-      } else {
-        showMessage('error', result.detail || 'Error al registrar el ingreso')
-      }
-    } catch {
-      showMessage('error', 'Error de red al conectar con el servidor')
+      const facturaSeleccionada = facturasPendientes.find(f => String(f.id) === String(facturaId));
+      const faltantes = verificacion === 'no_conforme'
+        ? (facturaSeleccionada?.materiales || [])
+            .map((m, i) => ({ ...m, cantidad: parseFloat(faltantesQty[i] || 0) }))
+            .filter(m => m.cantidad > 0)
+        : [];
+      const result = await api.panol.registrarIngreso({
+        factura_id: parseInt(facturaId),
+        verificacion_estado: verificacion,
+        verificacion_notas: notasVerif,
+        faltantes,
+      });
+      setStock(result.stock_actualizado || stock);
+      await load();
+      const msg = result.nueva_oc_id
+        ? `No conforme — OC-${result.nueva_oc_id} de reposición generada en Compras`
+        : verificacion === 'conforme' ? 'Ingreso conforme — stock actualizado' : 'No conforme registrado — stock sin cambios';
+      toast({ msg, type: result.nueva_oc_id ? 'warning' : undefined });
+      setFacturaId('');
+      setNotasVerif('');
+      setVerificacion('conforme');
+      setFaltantesQty({});
+    } catch (e) {
+      toast({ type: 'error', msg: e.message });
     } finally {
-      setLoadingIngreso(false)
+      setSaving(false);
     }
-  }
+  };
 
-  const handleDespacho = async () => {
-    const materialesValidos = materiales.filter(
-      (m) => m.nombre.trim() !== '' && m.cantidad !== ''
-    )
-    if (!ofId || materialesValidos.length === 0) return
-
-    setLoadingDespacho(true)
+  const handleDespachar = async () => {
+    if (!ofId) return;
+    const items = matItems.filter(it => it.nombre && it.cantidad);
+    if (items.length === 0) return;
+    setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/panol/movimientos/produccion`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          of_id: parseInt(ofId, 10),
-          materiales: materialesValidos.map((m) => ({
-            nombre: m.nombre.trim(),
-            cantidad: parseFloat(m.cantidad)
-          }))
-        })
-      })
-      const result = await res.json()
-      if (res.ok) {
-        showMessage('success', result.message || 'Despacho registrado con éxito')
-        setOfId('')
-        setMateriales([{ nombre: '', cantidad: '' }])
-        await Promise.all([fetchStock(), fetchMovimientos()])
-      } else {
-        const errText =
-          result.detail ||
-          (result.message
-            ? `Faltante de stock: ${result.message}`
-            : 'Error al registrar el despacho')
-        showMessage('error', errText)
-      }
-    } catch {
-      showMessage('error', 'Error de red al conectar con el servidor')
+      const result = await api.panol.despacharProduccion({
+        of_id: parseInt(ofId),
+        materiales: items.map(it => ({ nombre: it.nombre, cantidad: parseFloat(it.cantidad) })),
+      });
+      setStock(result.stock_actualizado || stock);
+      await load();
+      toast({ msg: `Materiales despachados a Producción — OF-${ofId}` });
+      setOfId('');
+      setMatItems([{ nombre: '', cantidad: '' }]);
+    } catch (e) {
+      toast({ type: 'error', msg: e.message });
     } finally {
-      setLoadingDespacho(false)
+      setSaving(false);
     }
-  }
+  };
 
-  const agregarMaterial = () => {
-    setMateriales((prev) => [...prev, { nombre: '', cantidad: '' }])
-  }
+  const handleCrearArticulo = async () => {
+    if (!articuloIsValid(artForm)) return;
+    setSaving(true);
+    try {
+      const a = await createArticulo(artForm);
+      toast({ msg: `Artículo "${a.nombre}" creado en el catálogo` });
+      setArtForm({ ...V2_EMPTY_ARTICULO });
+    } catch (e) {
+      toast({ type: 'error', msg: e.message });
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const eliminarMaterial = (idx) => {
-    setMateriales((prev) => prev.filter((_, i) => i !== idx))
-  }
+  const filteredArts = articulos.filter(a =>
+    !artFilter || a.nombre.toLowerCase().includes(artFilter.toLowerCase())
+  );
 
-  const actualizarMaterial = (idx, field, value) => {
-    setMateriales((prev) =>
-      prev.map((m, i) => (i === idx ? { ...m, [field]: value } : m))
-    )
-  }
+  const sq = stockSearch.toLowerCase();
+  const stockRowsFiltrados = stockRows.filter(r => !sq || r.material.toLowerCase().includes(sq));
+  const movimientosCombinados = [
+    ...ingresos.map(i => ({ _tipo: 'ingreso', _id: `i-${i.id}`, ...i, id: `i-${i.id}` })),
+    ...movimientos.map(m => ({ _tipo: 'despacho', _id: `m-${m.id}`, ...m, id: `m-${m.id}` })),
+  ].sort((a, b) => (b._numId || 0) - (a._numId || 0));
+  const movimientosFiltrados = movimientosCombinados.filter(r => !sq ||
+    `${r._tipo} factura-${r.factura_id} OF-${r.of_id} ${(r.materiales||[]).map(m=>m.nombre).join(' ')} ${r.verificacion_estado} ${r.estado}`.toLowerCase().includes(sq)
+  );
 
-  const stockEntries = Object.entries(stock)
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500 font-plus-jakarta">
-
-      {/* Header */}
-      <div className="flex justify-between items-end mb-2">
-        <div>
-          <h2 className="font-headline-lg text-headline-lg text-on-surface">
-            Pañol de Materiales
-          </h2>
-          <p className="font-body-md text-body-md text-outline mt-1">
-            Control de stock, ingresos por factura y despachos a producción.
-          </p>
+  const MovimientoDetalle = ({ row }) => (
+    <div className="border-t border-zinc-700 bg-zinc-900/50 px-4 py-3">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          {row._tipo === 'ingreso' ? (
+            <>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                Ingreso #{row.factura_id} · OC-{row.factura_id}
+              </p>
+              <span className={cx(
+                'font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded',
+                row.verificacion_estado === 'conforme'
+                  ? 'bg-emerald-500/15 text-emerald-400'
+                  : 'bg-rose-500/15 text-rose-400',
+              )}>
+                {row.verificacion_estado === 'conforme' ? 'Conforme' : 'No conforme'}
+              </span>
+            </>
+          ) : (
+            <>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                Despacho a Producción · OF-{row.of_id}
+              </p>
+              <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">
+                {row.estado}
+              </span>
+            </>
+          )}
         </div>
+        <button onClick={() => setSelectedMov(null)} className="text-zinc-600 hover:text-zinc-300 p-0.5 rounded hover:bg-zinc-800">
+          <Icon name="x" size={13} />
+        </button>
       </div>
 
-      {/* ── SECCIÓN STOCK ─────────────────────────────────────────── */}
-      <section className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden shadow-lg">
-        <div className="p-6 pb-4 border-b border-outline-variant flex justify-between items-center">
-          <h3 className="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
-            <Package size={18} className="text-primary" />
-            Stock Actual
-          </h3>
-          <button
-            onClick={fetchStock}
-            disabled={loadingStock}
-            className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary rounded-lg text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
-          >
-            {loadingStock
-              ? <Loader2 size={14} className="animate-spin" />
-              : <RefreshCw size={14} />}
-            Actualizar
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-background/50 border-b border-outline-variant">
-                <th className="p-4 font-label-md text-[10px] text-outline font-black uppercase tracking-wider">
-                  Material
-                </th>
-                <th className="p-4 font-label-md text-[10px] text-outline font-black uppercase tracking-wider text-right">
-                  Cantidad en Stock
-                </th>
-              </tr>
-            </thead>
-            <tbody className="font-body-md text-body-md">
-              {stockEntries.length === 0 ? (
-                <tr>
-                  <td colSpan="2" className="p-8 text-center text-outline italic text-sm">
-                    {loadingStock ? 'Cargando stock...' : 'No hay materiales en stock'}
+      <div className="border border-zinc-800 rounded-md overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-zinc-950/60 border-b border-zinc-800">
+            <tr>
+              <th className="font-mono text-[10px] uppercase tracking-[0.05em] text-zinc-500 font-semibold px-3 py-2 text-left">Material</th>
+              <th className="font-mono text-[10px] uppercase tracking-[0.05em] text-zinc-500 font-semibold px-3 py-2 text-center w-24">Cantidad</th>
+              {row._tipo === 'ingreso' && (
+                <th className="font-mono text-[10px] uppercase tracking-[0.05em] text-zinc-500 font-semibold px-3 py-2 text-right w-32">Precio unit.</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {(row.materiales || []).map((m, i) => (
+              <tr key={i} className="border-b border-zinc-800/50 last:border-0">
+                <td className="px-3 py-2 text-zinc-200 font-medium">{m.nombre}</td>
+                <td className="px-3 py-2 text-center font-mono font-semibold text-emerald-400">{m.cantidad}</td>
+                {row._tipo === 'ingreso' && (
+                  <td className="px-3 py-2 text-right font-mono text-zinc-400">
+                    {m.precio_unitario != null ? `$${parseFloat(m.precio_unitario).toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '—'}
                   </td>
-                </tr>
-              ) : (
-                stockEntries.map(([nombre, cantidad]) => (
-                  <tr
-                    key={nombre}
-                    className="border-b border-outline-variant hover:bg-surface-variant transition-colors"
-                  >
-                    <td className="p-4 text-on-surface text-sm font-medium">{nombre}</td>
-                    <td className="p-4 text-right">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black border ${
-                        cantidad <= 0
-                          ? 'bg-error/10 text-error border-error/20'
-                          : cantidad < 10
-                          ? 'bg-secondary/10 text-secondary border-secondary/20'
-                          : 'bg-primary/10 text-primary border-primary/20'
-                      }`}>
-                        {Number(cantidad).toLocaleString('es-AR')}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-
-        {/* ── SECCIÓN INGRESOS ──────────────────────────────────────── */}
-        <section className="space-y-4">
-          {/* Formulario de nuevo ingreso */}
-          <div className="bg-surface-container border border-outline-variant rounded-xl p-6 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-              <TrendingUp size={80} className="text-primary" />
-            </div>
-
-            <h3 className="font-headline-sm text-headline-sm text-on-surface mb-5 flex items-center gap-2 relative z-10">
-              <TrendingUp size={18} className="text-primary" />
-              Registrar Ingreso
-            </h3>
-
-            <div className="space-y-4 relative z-10">
-              {/* Búsqueda de factura */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em]">
-                  Factura ID
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Nro. de factura..."
-                    min="1"
-                    className="flex-1 bg-surface-container-high border border-outline-variant rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface"
-                    value={facturaId}
-                    onChange={(e) => { setFacturaId(e.target.value); setFacturaDetalle(null); }}
-                  />
-                  <button
-                    onClick={handleBuscarFactura}
-                    disabled={!facturaId || loadingFactura}
-                    className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary rounded-lg text-xs font-bold uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {loadingFactura ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                    Buscar
-                  </button>
-                </div>
-              </div>
-
-              {/* Detalle de factura */}
-              {facturaDetalle && (
-                <div className="space-y-4 animate-in fade-in duration-300">
-                  {/* Header + tabla de ítems */}
-                  <div className="bg-background/40 border border-outline-variant rounded-xl p-4 space-y-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="text-xs font-black text-primary">FAC-{facturaDetalle.id}</span>
-                        <span className="ml-2 text-[10px] text-outline">PM-{facturaDetalle.pedido_material_id}</span>
-                      </div>
-                      <span className="text-sm font-black text-secondary">
-                        ${parseFloat(facturaDetalle.monto_total).toLocaleString('es-AR')}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-outline">
-                      Proveedor: <span className="text-on-surface font-medium">{facturaDetalle.proveedor}</span>
-                    </p>
-
-                    <div className="rounded-lg overflow-hidden border border-outline-variant">
-                      <table className="w-full text-left text-[10px]">
-                        <thead>
-                          <tr className="bg-background/50 text-outline font-black uppercase tracking-widest">
-                            <th className="px-3 py-2">Insumo</th>
-                            <th className="px-3 py-2 text-right">Cant.</th>
-                            <th className="px-3 py-2">Unidad</th>
-                            <th className="px-3 py-2 text-right">P. Unit.</th>
-                            <th className="px-3 py-2">Proveedor</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-outline-variant/30">
-                          {facturaDetalle.materiales?.map((m, i) => (
-                            <tr key={i} className="text-on-surface">
-                              <td className="px-3 py-2 font-medium">{m.nombre}</td>
-                              <td className="px-3 py-2 text-right">{m.cantidad}</td>
-                              <td className="px-3 py-2 text-outline">{m.unidad_medida}</td>
-                              <td className="px-3 py-2 text-right text-secondary font-bold">
-                                ${parseFloat(m.precio_unitario).toLocaleString('es-AR')}
-                              </td>
-                              <td className="px-3 py-2 text-outline">{m.proveedor}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* PDF Viewer */}
-                  {facturaDetalle.pdf_archivo?.datos && (
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => setMostrarPdf(!mostrarPdf)}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-surface-container-high border border-outline-variant hover:border-primary/40 rounded-lg text-[10px] font-black text-outline hover:text-primary uppercase tracking-widest transition-all"
-                      >
-                        {mostrarPdf ? <EyeOff size={14} /> : <Eye size={14} />}
-                        {mostrarPdf ? 'Ocultar PDF' : 'Ver PDF adjunto'}
-                        <span className="text-[9px] font-medium normal-case opacity-60">
-                          ({facturaDetalle.pdf_archivo.nombre})
-                        </span>
-                      </button>
-                      {mostrarPdf && (
-                        <div className="rounded-xl overflow-hidden border border-outline-variant">
-                          <iframe
-                            src={`data:application/pdf;base64,${facturaDetalle.pdf_archivo.datos}`}
-                            className="w-full"
-                            style={{ height: '420px' }}
-                            title="PDF de Factura"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Verificación */}
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-black text-outline uppercase tracking-[0.2em]">
-                      Verificación de Entrega
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => setVerificacionEstado('conforme')}
-                        className={`py-3 rounded-xl border font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                          verificacionEstado === 'conforme'
-                            ? 'bg-secondary/20 border-secondary text-secondary shadow-lg shadow-secondary/10'
-                            : 'bg-surface-container-high border-outline-variant text-outline hover:border-secondary/40 hover:text-secondary'
-                        }`}
-                      >
-                        <CheckCircle size={16} />
-                        Conforme
-                      </button>
-                      <button
-                        onClick={() => setVerificacionEstado('no_conforme')}
-                        className={`py-3 rounded-xl border font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                          verificacionEstado === 'no_conforme'
-                            ? 'bg-error/20 border-error text-error shadow-lg shadow-error/10'
-                            : 'bg-surface-container-high border-outline-variant text-outline hover:border-error/40 hover:text-error'
-                        }`}
-                      >
-                        <XCircle size={16} />
-                        No conforme
-                      </button>
-                    </div>
-
-                    {verificacionEstado === 'no_conforme' && (
-                      <textarea
-                        value={verificacionNotas}
-                        onChange={(e) => setVerificacionNotas(e.target.value)}
-                        placeholder="Describir la discrepancia encontrada en la entrega..."
-                        rows={3}
-                        className="w-full bg-surface-container-high border border-error/30 rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-error transition-all text-on-surface resize-none"
-                      />
-                    )}
-                  </div>
-
-                  <button
-                    onClick={handleRegistrarIngreso}
-                    disabled={loadingIngreso}
-                    className={`w-full py-3 font-bold text-xs rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2 ${
-                      verificacionEstado === 'conforme'
-                        ? 'bg-primary hover:bg-primary/90 text-on-primary shadow-primary/20'
-                        : 'bg-error hover:bg-error/90 text-white shadow-error/20'
-                    }`}
-                  >
-                    {loadingIngreso ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
-                    {verificacionEstado === 'conforme' ? 'REGISTRAR INGRESO AL STOCK' : 'REGISTRAR NO CONFORMIDAD'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Lista de ingresos */}
-          <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden shadow-lg">
-            <div className="p-5 pb-3 border-b border-outline-variant">
-              <h4 className="text-[10px] font-black text-outline uppercase tracking-[0.2em]">
-                Ingresos Registrados
-              </h4>
-            </div>
-            <div className="divide-y divide-outline-variant max-h-72 overflow-y-auto">
-              {ingresos.length === 0 ? (
-                <p className="p-6 text-center text-outline italic text-sm">
-                  No hay ingresos registrados
-                </p>
-              ) : (
-                ingresos.map((ing) => (
-                  <div key={ing.id} className="p-4 hover:bg-surface-variant transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <span className="text-[10px] font-black text-outline uppercase tracking-widest">
-                          ING-{ing.id}
-                        </span>
-                        <span className="ml-2 text-[10px] font-black text-primary uppercase tracking-widest">
-                          FAC-{ing.factura_id}
-                        </span>
-                      </div>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                        ing.verificacion_estado === 'no_conforme'
-                          ? 'bg-error/10 text-error border-error/20'
-                          : 'bg-secondary/10 text-secondary border-secondary/20'
-                      }`}>
-                        {ing.verificacion_estado || ing.estado}
-                      </span>
-                    </div>
-                    {ing.materiales && ing.materiales.length > 0 && (
-                      <ul className="space-y-0.5">
-                        {ing.materiales.map((m, i) => (
-                          <li key={i} className="text-xs text-outline flex justify-between">
-                            <span>{m.nombre}</span>
-                            <span className="text-on-surface font-medium">
-                              {Number(m.cantidad).toLocaleString('es-AR')} u.
-                              {m.precio_unitario != null && (
-                                <span className="ml-2 text-outline">
-                                  @ ${Number(m.precio_unitario).toLocaleString('es-AR')}
-                                </span>
-                              )}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {ing.verificacion_notas && (
-                      <p className="mt-2 text-[10px] text-error bg-error/5 rounded-lg px-2 py-1 border border-error/10">
-                        Nota: {ing.verificacion_notas}
-                      </p>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* ── SECCIÓN MOVIMIENTOS A PRODUCCIÓN ─────────────────────── */}
-        <section className="space-y-4">
-          {/* Formulario de despacho */}
-          <div className="bg-surface-container border border-outline-variant rounded-xl p-6 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-              <ArrowRight size={80} className="text-secondary" />
-            </div>
-
-            <h3 className="font-headline-sm text-headline-sm text-on-surface mb-5 flex items-center gap-2 relative z-10">
-              <ArrowRight size={18} className="text-secondary" />
-              Despachar a Producción
-            </h3>
-
-            <div className="space-y-4 relative z-10">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em]">
-                  OF ID
-                </label>
-                <input
-                  type="number"
-                  placeholder="Nro. de Orden de Fabricación..."
-                  min="1"
-                  className="w-full bg-surface-container-high border border-outline-variant rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface"
-                  value={ofId}
-                  onChange={(e) => setOfId(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em]">
-                    Materiales
-                  </label>
-                  <button
-                    onClick={agregarMaterial}
-                    className="flex items-center gap-1 text-[10px] font-black text-primary uppercase tracking-widest hover:text-primary/80 transition-colors"
-                  >
-                    <Plus size={12} />
-                    Agregar Material
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {materiales.map((mat, idx) => (
-                    <div key={idx} className="flex gap-2 items-center animate-in slide-in-from-top-1 duration-150">
-                      <input
-                        type="text"
-                        placeholder="Nombre..."
-                        className="flex-1 bg-surface-container-high border border-outline-variant rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface"
-                        value={mat.nombre}
-                        onChange={(e) => actualizarMaterial(idx, 'nombre', e.target.value)}
-                      />
-                      <input
-                        type="number"
-                        placeholder="Cant."
-                        min="0"
-                        step="any"
-                        className="w-20 bg-surface-container-high border border-outline-variant rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-primary transition-all text-on-surface"
-                        value={mat.cantidad}
-                        onChange={(e) => actualizarMaterial(idx, 'cantidad', e.target.value)}
-                      />
-                      <button
-                        onClick={() => eliminarMaterial(idx)}
-                        disabled={materiales.length === 1}
-                        className="p-2 text-outline hover:text-error hover:bg-error/10 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                        aria-label="Eliminar material"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                onClick={handleDespacho}
-                disabled={
-                  !ofId ||
-                  loadingDespacho ||
-                  materiales.every((m) => m.nombre.trim() === '' || m.cantidad === '')
-                }
-                className="w-full py-3 bg-secondary hover:bg-secondary/90 text-on-secondary font-bold text-xs rounded-xl transition-all shadow-lg shadow-secondary/20 active:scale-95 disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2"
-              >
-                {loadingDespacho
-                  ? <Loader2 size={14} className="animate-spin" />
-                  : <ArrowRight size={14} />}
-                DESPACHAR A PRODUCCIÓN
-              </button>
-            </div>
-          </div>
-
-          {/* Lista de movimientos */}
-          <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden shadow-lg">
-            <div className="p-5 pb-3 border-b border-outline-variant">
-              <h4 className="text-[10px] font-black text-outline uppercase tracking-[0.2em]">
-                Movimientos Registrados
-              </h4>
-            </div>
-            <div className="divide-y divide-outline-variant max-h-72 overflow-y-auto">
-              {movimientos.length === 0 ? (
-                <p className="p-6 text-center text-outline italic text-sm">
-                  No hay movimientos registrados
-                </p>
-              ) : (
-                movimientos.map((mov) => (
-                  <div key={mov.id} className="p-4 hover:bg-surface-variant transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <span className="text-[10px] font-black text-outline uppercase tracking-widest">
-                          MOV-{mov.id}
-                        </span>
-                        <span className="ml-2 text-[10px] font-black text-secondary uppercase tracking-widest">
-                          OF-{mov.of_id}
-                        </span>
-                      </div>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                        mov.estado === 'entregado'
-                          ? 'bg-secondary/10 text-secondary border-secondary/20'
-                          : 'bg-primary/10 text-primary border-primary/20'
-                      }`}>
-                        {mov.estado}
-                      </span>
-                    </div>
-                    {mov.materiales && mov.materiales.length > 0 && (
-                      <ul className="space-y-0.5">
-                        {mov.materiales.map((m, i) => (
-                          <li key={i} className="text-xs text-outline flex justify-between">
-                            <span>{m.nombre}</span>
-                            <span className="text-on-surface font-medium">
-                              {Number(m.cantidad).toLocaleString('es-AR')} u.
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </section>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* ── TOAST DE MENSAJES ─────────────────────────────────────── */}
-      {message && (
-        <div
-          className={`fixed bottom-8 right-8 z-[100] flex items-center gap-4 p-5 rounded-2xl border shadow-2xl animate-in slide-in-from-right-8 duration-300 ${
-            message.type === 'success'
-              ? 'bg-secondary/20 border-secondary text-secondary'
-              : 'bg-error/20 border-error text-error'
-          }`}
-        >
-          {message.type === 'success'
-            ? <CheckCircle size={20} />
-            : <AlertTriangle size={20} />}
-          <p className="text-xs font-bold">{message.text}</p>
-          <button
-            onClick={() => setMessage(null)}
-            className="p-1 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <X size={16} />
-          </button>
+      {row._tipo === 'ingreso' && row.verificacion_notas && (
+        <div className="mt-2.5 rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-600 mb-1">Observaciones</p>
+          <p className="text-xs text-zinc-300 leading-relaxed">{row.verificacion_notas}</p>
         </div>
       )}
     </div>
-  )
+  );
+
+  const updateMatItem = (idx, field, val) => setMatItems(prev => prev.map((it,i) => i === idx ? {...it,[field]:val} : it));
+
+  return (
+    <div>
+      <ModuleHeader module="panol" subtitle="Stock de materiales, ingresos y despachos a producción" actions={
+        tab === 'stock' ? (
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
+              <Icon name="search" size={13} />
+            </span>
+            <input
+              ref={stockSearchRef}
+              value={stockSearch}
+              onChange={e => setStockSearch(e.target.value)}
+              placeholder="Buscar material..."
+              className="h-8 pl-8 pr-3 w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+            />
+          </div>
+        ) : null
+      } />
+
+      <div className="px-7 pt-5 grid grid-cols-4 gap-3">
+        <Metric label="Materiales en stock" value={stockRows.length} icon="package" accent="emerald" />
+        <Metric label="Facturas a ingresar" value={facturasPendientes.length} sub="Pendientes de verificación" icon="alert" accent="amber" />
+        <Metric label="Ingresos registrados" value={ingresos.length} icon="arrow-up" accent="emerald" />
+        <Metric label="Despachos producción" value={movimientos.length} icon="arrow-down" accent="amber" />
+      </div>
+
+      <div className="px-7 pt-4">
+        <Tabs value={tab} onChange={setTab} accent="emerald" items={[
+          { value: 'stock',    label: 'Stock & movimientos' },
+          { value: 'catalogo', label: `Catálogo (${articulos.length})` },
+        ]} />
+      </div>
+
+      {tab === 'stock' && (
+        <div className="px-7 py-5 grid grid-cols-[1fr_340px] gap-4 items-start">
+          <div className="space-y-3">
+            <Card>
+              <CardHeader><CardTitle hint={stockRowsFiltrados.length}>Stock actual</CardTitle></CardHeader>
+              {stockRowsFiltrados.length === 0
+                ? <EmptyState icon="package" msg={stockSearch ? 'Sin resultados' : 'Sin materiales en stock'} hint={stockSearch ? 'Probá otro término' : 'Registrá un ingreso de factura para cargar stock'} />
+                : <DataTable
+                    data={stockRowsFiltrados}
+                    columns={[
+                      { key: 'material', label: 'Material', sortable: true, cell: r => <span className="text-zinc-200 font-medium">{r.material}</span> },
+                      { key: 'stock_actual', label: 'Stock', sortable: true, mono: true, align: 'right',
+                        cell: r => <span className="font-mono font-bold text-base text-emerald-400">{r.stock_actual}</span> },
+                    ]}
+                  />
+              }
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle hint={movimientosFiltrados.length}>Historial de movimientos</CardTitle></CardHeader>
+              {movimientosFiltrados.length === 0
+                ? <EmptyState icon="arrow-up" msg={stockSearch ? 'Sin resultados' : 'Sin movimientos registrados'} />
+                : <DataTable
+                    data={movimientosFiltrados}
+                    onRowClick={row => setSelectedMov(prev => prev === row.id ? null : row.id)}
+                    selectedId={selectedMov}
+                    renderExpanded={row => <MovimientoDetalle row={row} />}
+                    columns={[
+                      { key: '_tipo', label: 'Tipo', cell: r => <Badge accent={r._tipo === 'ingreso' ? 'emerald' : 'amber'}>{r._tipo === 'ingreso' ? '↑ Ingreso' : '↓ Despacho'}</Badge> },
+                      { key: 'ref', label: 'Referencia', cell: r => r._tipo === 'ingreso'
+                        ? <span className="text-zinc-400 text-xs">OC-{r.factura_id}</span>
+                        : <span className="text-zinc-400 text-xs">OF-{r.of_id}</span>
+                      },
+                      { key: 'materiales', label: 'Materiales', cell: r => {
+                        const mats = r.materiales || [];
+                        return <span className="text-zinc-400 text-xs">{mats.slice(0,2).map(m => m.nombre).join(', ')}{mats.length > 2 ? ` +${mats.length-2}` : ''}</span>;
+                      }},
+                      { key: 'items', label: 'Ítems', mono: true, align: 'center', cell: r => <span className="font-mono text-zinc-500">{(r.materiales||[]).length}</span> },
+                      { key: 'estado', label: 'Estado', cell: r => r._tipo === 'ingreso'
+                        ? <span className={cx('text-xs font-mono', r.verificacion_estado === 'conforme' ? 'text-emerald-400' : 'text-rose-400')}>{r.verificacion_estado}</span>
+                        : <span className="text-xs font-mono text-blue-400">{r.estado}</span>
+                      },
+                    ]}
+                  />
+              }
+            </Card>
+          </div>
+
+          <Card className="sticky top-[88px]">
+            <CardHeader><CardTitle>Registrar movimiento</CardTitle></CardHeader>
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {[['ingreso','Ingreso','emerald'],['despacho','Despacho Prod.','amber']].map(([val, label, color]) => (
+                  <button
+                    key={val}
+                    onClick={() => setTipoMov(val)}
+                    className={cx(
+                      'h-10 rounded-md text-xs font-semibold transition-all border',
+                      tipoMov === val
+                        ? color === 'emerald'
+                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300'
+                          : 'bg-amber-500/15 border-amber-500 text-amber-300'
+                        : 'border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300',
+                    )}
+                  >{label}</button>
+                ))}
+              </div>
+
+              {tipoMov === 'ingreso' && (() => {
+                const facturaSeleccionada = facturasPendientes.find(f => String(f.id) === String(facturaId));
+                return (
+                <>
+                  <Field label="Factura de compra" required>
+                    <select
+                      value={facturaId}
+                      onChange={e => { setFacturaId(e.target.value); setFaltantesQty({}); }}
+                      className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-900 text-xs text-zinc-200 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+                    >
+                      <option value="">Seleccioná factura...</option>
+                      {facturasPendientes.map(f => (
+                        <option key={f.id} value={f.id}>OC-{f.id} · PM-{f.pedido_material_id} · ${Number(f.monto_total||0).toLocaleString('es-AR')}</option>
+                      ))}
+                    </select>
+                    {facturasPendientes.length === 0 && <p className="text-[11px] text-zinc-500 mt-1">Sin facturas pendientes de ingreso</p>}
+                  </Field>
+
+                  {facturaSeleccionada && (
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/60 overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
+                        <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                          Detalle OC-{facturaSeleccionada.id}
+                        </span>
+                        {facturaSeleccionada.tiene_pdf && (
+                          <button
+                            onClick={() => window.open(`/api/v1/compras/facturas/${facturaSeleccionada.id}/pdf`, '_blank')}
+                            className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+                          >
+                            <Icon name="upload" size={11} />
+                            Ver PDF
+                          </button>
+                        )}
+                      </div>
+                      <div className="divide-y divide-zinc-800/60">
+                        {(facturaSeleccionada.materiales || []).map((m, i) => (
+                          <div key={i} className="flex items-center justify-between px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-xs text-zinc-200 font-medium truncate">{m.nombre}</p>
+                              <p className="text-[11px] text-zinc-500 truncate">{m.proveedor || 'Sin proveedor'}</p>
+                            </div>
+                            <div className="text-right shrink-0 ml-3">
+                              <p className="font-mono text-xs text-emerald-400 font-semibold">{m.cantidad} {m.unidad_medida}</p>
+                              <p className="font-mono text-[11px] text-zinc-500">${parseFloat(m.precio_unitario||0).toLocaleString('es-AR',{minimumFractionDigits:2})}/u</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center px-3 py-2 border-t border-zinc-800 bg-zinc-900/40">
+                        <span className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider">Total OC</span>
+                        <span className="font-mono text-sm font-bold text-emerald-400">${Number(facturaSeleccionada.monto_total||0).toLocaleString('es-AR',{minimumFractionDigits:2})}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {[['conforme','Conforme','emerald'],['no_conforme','No conforme','rose']].map(([val, label, color]) => (
+                      <button
+                        key={val}
+                        onClick={() => { setVerificacion(val); setFaltantesQty({}); }}
+                        className={cx(
+                          'h-9 rounded-md text-xs font-semibold transition-all border',
+                          verificacion === val
+                            ? color === 'emerald' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300' : 'bg-rose-500/15 border-rose-500 text-rose-300'
+                            : 'border-zinc-800 text-zinc-500 hover:border-zinc-700',
+                        )}
+                      >{label}</button>
+                    ))}
+                  </div>
+
+                  {verificacion === 'no_conforme' && facturaSeleccionada && (
+                    <div className="rounded-md border border-rose-500/30 bg-rose-500/5 overflow-hidden">
+                      <div className="px-3 py-2 border-b border-rose-500/20">
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-rose-400">Especificá los faltantes</p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">Ingresá la cantidad faltante por ítem (0 = recibido)</p>
+                      </div>
+                      <div className="divide-y divide-zinc-800/50">
+                        {(facturaSeleccionada.materiales || []).map((m, i) => (
+                          <div key={i} className="flex items-center gap-2 px-3 py-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-zinc-200 truncate">{m.nombre}</p>
+                              <p className="text-[11px] text-zinc-500 font-mono">pedido: {m.cantidad} {m.unidad_medida}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[11px] text-zinc-600">faltante:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                max={m.cantidad}
+                                value={faltantesQty[i] ?? ''}
+                                onChange={e => setFaltantesQty(prev => ({ ...prev, [i]: e.target.value }))}
+                                placeholder="0"
+                                className="w-16 h-7 rounded border border-zinc-700 bg-zinc-900 text-xs text-rose-300 font-mono text-center focus:outline-none focus:border-rose-500"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <Field label="Notas de verificación">
+                    <Input value={notasVerif} onChange={e => setNotasVerif(e.target.value)} placeholder="Observaciones..." />
+                  </Field>
+
+                  <Button onClick={handleRegistrarIngreso} disabled={!facturaId || saving} accent="emerald" className="w-full" icon="check">
+                    {saving ? 'Registrando...' : 'Registrar ingreso'}
+                  </Button>
+                </>
+                );
+              })()}
+
+              {tipoMov === 'despacho' && (
+                <>
+                  <Field label="Orden de fabricación" required>
+                    <Select
+                      value={ofId}
+                      onChange={e => setOfId(e.target.value)}
+                      options={[{value:'',label:'Seleccioná OF...'}, ...ofsAprobadas.map(o => ({value: o.id, label: `OF-${o.id} — ${o.cliente}`}))]}
+                    />
+                  </Field>
+
+                  <div className="space-y-1.5">
+                    <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Materiales a despachar</div>
+                    {matItems.map((it, idx) => (
+                      <div key={idx} className="flex gap-1.5 items-center">
+                        <input
+                          value={it.nombre}
+                          onChange={e => updateMatItem(idx,'nombre',e.target.value)}
+                          placeholder="Nombre del material..."
+                          list="panol-stock-list"
+                          className="flex-1 h-8 rounded-md border border-zinc-800 bg-zinc-900 text-xs text-zinc-200 px-2.5 focus:outline-none focus:border-amber-500"
+                        />
+                        <input
+                          type="number"
+                          value={it.cantidad}
+                          onChange={e => updateMatItem(idx,'cantidad',e.target.value)}
+                          placeholder="Cant."
+                          className="w-16 h-8 rounded-md border border-zinc-800 bg-zinc-900 text-xs text-zinc-200 px-2 text-center focus:outline-none focus:border-amber-500"
+                        />
+                        <button onClick={() => setMatItems(p => p.length <= 1 ? p : p.filter((_,i)=>i!==idx))} disabled={matItems.length <= 1} className="text-zinc-600 hover:text-rose-400 disabled:opacity-20 px-1">
+                          <Icon name="x" size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    <datalist id="panol-stock-list">
+                      {Object.keys(stock).map(n => <option key={n} value={n} />)}
+                    </datalist>
+                    <button onClick={() => setMatItems(p => [...p, {nombre:'',cantidad:''}])} className="text-xs text-zinc-500 hover:text-amber-400 flex items-center gap-1 transition-colors">
+                      <Icon name="plus" size={12} /> Agregar material
+                    </button>
+                  </div>
+
+                  <Button onClick={handleDespachar} disabled={!ofId || matItems.every(it => !it.nombre || !it.cantidad) || saving} accent="amber" className="w-full" icon="arrow-down">
+                    {saving ? 'Despachando...' : 'Despachar a Producción'}
+                  </Button>
+                </>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {tab === 'catalogo' && (
+        <div className="px-7 py-5 grid grid-cols-[1fr_360px] gap-4 items-start">
+          <Card>
+            <CardHeader actions={
+              <Input value={artFilter} onChange={e => setArtFilter(e.target.value)} placeholder="Buscar artículo..." />
+            }>
+              <CardTitle hint={filteredArts.length}>Catálogo de artículos</CardTitle>
+            </CardHeader>
+            {filteredArts.length === 0 ? (
+              <EmptyState icon="package" msg="Sin artículos" hint={artFilter ? 'Probá ajustar el filtro' : 'Creá el primer artículo del catálogo'} />
+            ) : (
+              <DataTable
+                data={filteredArts}
+                columns={[
+                  { key: 'id', label: 'ID', mono: true, width: 60, cell: r => <span className="font-mono text-xs text-zinc-600">ART-{String(r.id).padStart(3,'0')}</span> },
+                  { key: 'nombre', label: 'Nombre', sortable: true, cell: r => <span className="text-zinc-200 font-medium">{r.nombre}</span> },
+                  { key: 'categoria', label: 'Categoría', sortable: true, cell: r => r.categoria ? <Badge accent="emerald" dot>{r.categoria}</Badge> : <span className="text-zinc-600 text-xs">—</span> },
+                  { key: 'subcategoria', label: 'Subcategoría', cell: r => <span className="text-zinc-400 text-xs">{r.subcategoria || '—'}</span> },
+                  { key: 'unidad', label: 'Unidad', cell: r => <span className="text-zinc-500">{r.unidad}</span> },
+                ]}
+              />
+            )}
+          </Card>
+
+          <Card className="sticky top-[88px]">
+            <CardHeader><CardTitle>Nuevo artículo</CardTitle></CardHeader>
+            <div className="p-4">
+              <ArticuloForm value={artForm} onChange={setArtForm} />
+              <div className="pt-3 mt-3 border-t border-zinc-800">
+                <Button
+                  onClick={handleCrearArticulo}
+                  disabled={!articuloIsValid(artForm) || saving}
+                  accent="emerald"
+                  className="w-full"
+                  icon="plus"
+                >{saving ? 'Guardando...' : 'Crear artículo'}</Button>
+                <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
+                  Los artículos del catálogo quedan disponibles como insumos en Compras y Pañol.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
 }

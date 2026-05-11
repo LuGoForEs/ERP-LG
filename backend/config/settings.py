@@ -165,6 +165,17 @@ SIMPLE_JWT = {
 # Cloudflare reCAPTCHA
 RECAPTCHA_SECRET_KEY = config('RECAPTCHA_SECRET_KEY', default='')
 
+# Email
+EMAIL_BACKEND       = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST          = config('EMAIL_HOST', default='mail.sibotec.com.ar')
+EMAIL_PORT          = config('EMAIL_PORT', default=465, cast=int)
+EMAIL_HOST_USER     = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_SSL       = config('EMAIL_USE_SSL', default=True, cast=bool)
+EMAIL_USE_TLS       = False
+DEFAULT_FROM_EMAIL  = config('DEFAULT_FROM_EMAIL', default='ERP-LG <noreply@sibotec.com.ar>')
+FRONTEND_URL        = config('FRONTEND_URL', default='http://localhost:3000')
+
 # Celery
 from celery.schedules import crontab  # noqa: E402
 

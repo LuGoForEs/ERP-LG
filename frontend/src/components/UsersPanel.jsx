@@ -41,7 +41,7 @@ function RolesRepeater({ roles, onChange }) {
               <select
                 value={r.role}
                 onChange={e => updateRole(i, 'role', e.target.value)}
-                className="appearance-none block w-full h-8 bg-transparent border-none text-sm text-zinc-200 focus:ring-0 pl-3 pr-8 cursor-pointer"
+                className="appearance-none block w-full h-8 bg-transparent border-none text-sm text-zinc-200 focus:ring-0 pl-3 pr-8 py-0 cursor-pointer"
                 style={{ backgroundImage: 'none' }}
               >
                 {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>)}
@@ -54,7 +54,7 @@ function RolesRepeater({ roles, onChange }) {
               <select
                 value={r.permission}
                 onChange={e => updateRole(i, 'permission', e.target.value)}
-                className="appearance-none block w-full h-8 bg-transparent border-none text-[11px] font-medium text-zinc-400 focus:ring-0 pl-3 pr-8 cursor-pointer"
+                className="appearance-none block w-full h-8 bg-transparent border-none text-[11px] font-medium text-zinc-400 focus:ring-0 pl-3 pr-8 py-0 cursor-pointer"
                 style={{ backgroundImage: 'none' }}
               >
                 {PERM_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>)}

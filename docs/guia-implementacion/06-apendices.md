@@ -30,18 +30,7 @@ Mantener un estándar de código es fundamental para la supervivencia del proyec
 
 Estos ejercicios están diseñados para probar la comprensión de la arquitectura del ERP-LG. Se recomienda crear una rama paralela (`git checkout -b feature/ejercicios`) antes de realizarlos.
 
-### Ejercicio 1: Implementar Autenticación con SimpleJWT
-**Objetivo:** Proteger la API para que solo usuarios registrados puedan operar el ERP.
-**Plan sugerido:**
-1. Instalar `djangorestframework-simplejwt`.
-2. Agregar la librería a `INSTALLED_APPS` y configurar `REST_FRAMEWORK` en `settings.py` para usar `JWTAuthentication` como clase de autenticación por defecto.
-3. Crear un endpoint de Login (`TokenObtainPairView`) en `config/urls.py`.
-4. Modificar el frontend:
-   * Crear un componente `Login.jsx`.
-   * Guardar el JWT devuelto en `localStorage` o `sessionStorage`.
-   * Modificar las funciones `fetch()` para incluir el header `Authorization: Bearer <token>`.
-
-### Ejercicio 2: Migración de Datos Real (RunPython)
+### Ejercicio 1: Migración de Datos Real (RunPython)
 **Objetivo:** Resolver la deuda técnica del `null=True` en las Foreign Keys introducidas durante la normalización (Ver [Modelo de Datos - Deuda Técnica](../manual-referencia/03-modelo-datos.md)).
 **Plan sugerido:**
 1. Crear una migración vacía en el dominio `compras`: `python manage.py makemigrations compras --empty`.

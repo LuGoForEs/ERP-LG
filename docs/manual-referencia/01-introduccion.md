@@ -181,16 +181,17 @@ MariaDB 10.11 fue elegido por ser un motor relacional robusto con soporte nativo
 
 ---
 
-### Decisión 4: Autenticación diferida (AllowAny temporal)
+### Decisión 4: Autenticación Integral (JWT + 2FA)
 
-SimpleJWT está configurado en `REST_FRAMEWORK.DEFAULT_AUTHENTICATION_CLASSES` pero `DEFAULT_PERMISSION_CLASSES` está seteado a `AllowAny`. Esta es una decisión deliberada de priorización: el sistema es funcional sin autenticación en entorno de desarrollo, y la implementación del flujo de login (pantalla de autenticación, roles por área, refresh token) está planificada como fase posterior.
+La autenticación está plenamente implementada mediante una aplicación dedicada (`auth_erp`). Se utiliza SimpleJWT para manejar sesiones sin estado. 
 
-El código de autenticación no se implementa a medias — se implementa completo cuando se aborda, incluyendo:
-- `AbstractUser` extendido con campo `area` (rol de dominio)
-- Frontend: `AuthContext`, `PrivateRoute`, formulario de login
-- Middleware: validación del token en cada request
+La implementación incluye:
+- Extendemos de `AbstractUser` para el manejo de roles y departamentos.
+- Se implementó 2FA (Doble Factor de Autenticación) de forma nativa para mayor seguridad en el acceso al sistema industrial.
+- El Frontend interactúa con esto a través de `AuthContext`, gestionando el estado global de la sesión.
+- Validaciones en middleware y permisos basados en dominios utilizando DRF `IsAuthenticated`.
 
-Esta decisión evita código de seguridad incompleto en el repositorio, que es más peligroso que no tener autenticación en un entorno de desarrollo aislado.
+Esta decisión garantiza la trazabilidad y la seguridad en operaciones sensibles como despachos o compras.
 
 ---
 
@@ -214,7 +215,7 @@ Esta decisión evita código de seguridad incompleto en el repositorio, que es m
 | **Pañol** | Almacén de materiales. Término de uso industrial en Argentina. El módulo homónimo gestiona el stock y los movimientos. |
 | **Timeline** | Reconstrucción cronológica de todos los eventos de una OF, cruzando los 7 dominios. Endpoint: `GET /api/v1/comercial/ordenes-fabricacion/{id}/timeline/`. |
 | **Bounded Context** | Concepto de Domain-Driven Design. Cada dominio del ERP es un Bounded Context: tiene su propio vocabulario, sus propios modelos y sus propias reglas de negocio. En Django, cada Bounded Context es una app. |
-| **AllowAny** | Clase de permisos de DRF que permite acceso sin autenticación. Configurada temporalmente hasta implementar el flujo de login. |
+| **AllowAny** | Clase de permisos de DRF. Antes utilizada de forma global, ahora ha sido reemplazada por `IsAuthenticated` gracias a la integración de JWT. |
 
 ---
 
@@ -256,6 +257,10 @@ ga funcionalidad ni corrige bug |
 
 - Base path: `/api/v1/`
 - Formato de respuesta exitosa: `{"data": {...}}` o `{"message": "...", "data": {...}}`
+- Formato de error: respuesta estándar de DRF `{"detail": "..."}` o `{"field": ["error"]}`
+- Sin versión en URL de modelos internos (solo en la API pública)
+)
+...}}`
 - Formato de error: respuesta estándar de DRF `{"detail": "..."}` o `{"field": ["error"]}`
 - Sin versión en URL de modelos internos (solo en la API pública)
 )

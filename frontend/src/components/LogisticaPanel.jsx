@@ -123,7 +123,14 @@ export default function LogisticaPanel({ openNewSignal }) {
         api.produccion.getLotes(),
       ]);
       setDespachos(desps);
-      setLotes(lotesData.filter(l => l.estado === 'terminado'));
+      // Lotes disponibles: terminado o en_despacho sin despacho activo (rechazados no bloquean)
+      const occupiedLoteIds = new Set(
+        desps.filter(d => d.estado !== 'rechazado').map(d => d.lote_id)
+      );
+      setLotes(lotesData.filter(l =>
+        (l.estado === 'terminado' || l.estado === 'en_despacho') &&
+        !occupiedLoteIds.has(l.id)
+      ));
     } catch (e) {
       toast({ type: 'error', msg: e.message });
     } finally {

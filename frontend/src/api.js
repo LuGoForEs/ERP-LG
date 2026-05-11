@@ -110,7 +110,7 @@ export const api = {
   administracion: {
     getOrdenes:      ()         => get('/administracion/ordenes').then(r => r.data),
     validarAnticipo: (id, b, f) => put(`/administracion/anticipos/${id}/validar`, b, f).then(r => r.data),
-    aprobarDespacho: (id, b)    => put(`/administracion/despachos/${id}/aprobar`, b).then(r => r.data),
+    aprobarDespacho: (id, b, f) => put(`/administracion/despachos/${id}/aprobar`, b, f).then(r => r.data),
   },
 
   desarrollo: {

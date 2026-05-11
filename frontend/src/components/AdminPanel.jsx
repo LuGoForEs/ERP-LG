@@ -19,6 +19,7 @@ export default function AdminPanel() {
   const [archivo, setArchivo] = React.useState(null);
   const [aprobado, setAprobado] = React.useState(true);
   const [obsDespacho, setObsDespacho] = React.useState('');
+  const [comprobanteSaldo, setComprobanteSaldo] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
   const [search, setSearch] = React.useState('');
   const searchRef = React.useRef(null);
@@ -44,7 +45,7 @@ export default function AdminPanel() {
         api.logistica.getDespachos(),
       ]);
       setOrdenes(ords);
-      setDespachos(desps.filter(d => d.estado === 'esperando_autorizacion'));
+      setDespachos(desps);
     } catch (e) {
       toast({ type: 'error', msg: e.message });
     } finally {
@@ -58,9 +59,13 @@ export default function AdminPanel() {
   const matchO = (o) => !q || `OF-${o.id} ${o.cliente} ${o.descripcion}`.toLowerCase().includes(q);
   const matchDesp = (d) => !q || `D-${d.id} Lote-${d.lote_id} ${d.destino} ${d.transportista}`.toLowerCase().includes(q);
 
-  const pendientes = ordenes.filter(o => o.anticipo?.estado === 'pendiente').filter(matchO);
-  const procesadas  = ordenes.filter(o => o.anticipo?.estado !== 'pendiente').filter(matchO);
-  const despachosFiltrados = despachos.filter(matchDesp);
+  const pendientes  = ordenes.filter(o => o.anticipo?.estado === 'pendiente').filter(matchO);
+  const validadas   = ordenes.filter(o => o.anticipo?.estado === 'validado').filter(matchO);
+  const rechazadasA = ordenes.filter(o => o.anticipo?.estado === 'rechazado').filter(matchO);
+  const despEnRevision = despachos.filter(d => d.estado === 'esperando_autorizacion').filter(matchDesp);
+  // OFs finalizadas: lote en despacho ejecutado
+  const despEjecutados  = despachos.filter(d => d.estado === 'ejecutado');
+  const ofIdsFinalizadas = new Set(despEjecutados.map(d => d.lote_id));
   const totalPendARS = ordenes.filter(o => o.anticipo?.estado === 'pendiente').reduce((a, o) => a + (o.moneda_anticipo === 'ARS' ? (o.monto_anticipo || 0) : 0), 0);
 
   const handleSelect = (o) => {
@@ -94,11 +99,16 @@ export default function AdminPanel() {
     if (!selectedDespacho) return;
     setSaving(true);
     try {
-      await api.administracion.aprobarDespacho(selectedDespacho.id, { aprobado, observacion: obsDespacho });
+      const fd = new FormData();
+      fd.append('aprobado', aprobado ? 'true' : 'false');
+      fd.append('observacion', obsDespacho);
+      if (comprobanteSaldo) fd.append('comprobante_saldo', comprobanteSaldo);
+      await api.administracion.aprobarDespacho(selectedDespacho.id, fd, true);
       toast({ type: aprobado ? 'success' : 'error',
         msg: aprobado ? `Despacho D-${selectedDespacho.id} autorizado` : `Despacho D-${selectedDespacho.id} rechazado` });
       setSelectedDespacho(null);
       setObsDespacho('');
+      setComprobanteSaldo(null);
       await load();
     } catch (e) {
       toast({ type: 'error', msg: e.message });
@@ -167,15 +177,16 @@ export default function AdminPanel() {
 
       <div className="px-7 pt-5 grid grid-cols-4 gap-3">
         <Metric label="Pend. validación" value={pendientes.length} icon="alert" accent="amber" />
-        <Metric label="Validados" value={procesadas.filter(o => o.anticipo?.estado === 'validado').length} icon="check-circle" accent="emerald" />
-        <Metric label="Despachos en revisión" value={despachos.length} icon="truck" accent="violet" />
+        <Metric label="Validados" value={validadas.length} icon="check-circle" accent="emerald" />
+        <Metric label="Despachos en revisión" value={despEnRevision.length} icon="truck" accent="violet" />
         <Metric label="En espera" value={`$${(totalPendARS/1000).toFixed(0)}k`} sub="ARS pendientes" icon="wallet" accent="violet" />
       </div>
 
       <div className="px-7 pt-4">
         <Tabs value={tab} onChange={setTab} accent="violet" items={[
           { value: 'anticipos', label: `Anticipos (${pendientes.length} pend.)` },
-          { value: 'despachos', label: `Despachos (${despachosFiltrados.length} en revisión)` },
+          { value: 'despachos', label: `Despachos (${despEnRevision.length} en revisión)` },
+          { value: 'finalizadas', label: `Obras finalizadas (${despEjecutados.length})` },
         ]} />
       </div>
 
@@ -183,7 +194,8 @@ export default function AdminPanel() {
         <div className="px-7 py-5 grid grid-cols-[320px_1fr] gap-4 items-start">
           <div className="space-y-3">
             <ListSection title="Pendientes" items={pendientes} />
-            <ListSection title="Procesados" items={procesadas} />
+            <ListSection title="Validados" items={validadas} />
+            <ListSection title="Rechazados" items={rechazadasA} />
           </div>
 
           <Card>
@@ -203,7 +215,7 @@ export default function AdminPanel() {
                       <p className="text-sm text-zinc-200">{selected.descripcion}</p>
                     </div>
                     <div>
-                      <Label>Plazo</Label>
+                      <Label>Plazo entrega</Label>
                       <p className="text-sm text-zinc-200 font-mono">{selected.plazo_entrega}</p>
                     </div>
                     <div>
@@ -211,6 +223,14 @@ export default function AdminPanel() {
                       <p className="text-sm font-mono text-emerald-400 font-semibold">
                         {selected.moneda_anticipo} {Number(selected.monto_anticipo).toLocaleString('es-AR')}
                       </p>
+                    </div>
+                    <div>
+                      <Label>Responsable</Label>
+                      <p className="text-sm text-zinc-200">{selected.responsable_nombre ?? '—'}</p>
+                    </div>
+                    <div>
+                      <Label>Plazo anticipo</Label>
+                      <p className="text-sm text-zinc-200 font-mono">{selected.plazo_anticipo_dias ?? 7} días</p>
                     </div>
                   </div>
 
@@ -280,10 +300,10 @@ export default function AdminPanel() {
       {tab === 'despachos' && (
         <div className="px-7 py-5 grid grid-cols-[320px_1fr] gap-4 items-start">
           <Card className="overflow-hidden">
-            <CardHeader><CardTitle hint={despachosFiltrados.length}>En revisión</CardTitle></CardHeader>
+            <CardHeader><CardTitle hint={despEnRevision.length}>En revisión</CardTitle></CardHeader>
             <div className="max-h-[500px] overflow-y-auto">
-              {despachosFiltrados.length === 0 ? <EmptyState icon="truck" msg="Sin despachos en revisión" /> :
-                despachosFiltrados.map(d => (
+              {despEnRevision.length === 0 ? <EmptyState icon="truck" msg="Sin despachos en revisión" /> :
+                despEnRevision.map(d => (
                   <button
                     key={d.id}
                     onClick={() => { setSelectedDespacho(d); setAprobado(true); setObsDespacho(''); }}
@@ -333,6 +353,17 @@ export default function AdminPanel() {
                     </button>
                   </div>
 
+                  <Field label="Comprobante de saldo restante">
+                    <label className="flex items-center gap-3 px-3 py-2 rounded-md border border-dashed border-zinc-800 bg-zinc-950/40 cursor-pointer hover:border-violet-500/60 hover:bg-violet-500/5 transition-colors">
+                      <Icon name="upload" size={16} className="text-zinc-500" />
+                      <span className="text-xs text-zinc-400 flex-1">
+                        {comprobanteSaldo ? comprobanteSaldo.name : 'Adjuntar comprobante del saldo (PDF/imagen)'}
+                      </span>
+                      {comprobanteSaldo && <Badge accent="emerald">cargado</Badge>}
+                      <input type="file" className="hidden" onChange={e => setComprobanteSaldo(e.target.files[0] || null)} />
+                    </label>
+                  </Field>
+
                   <Field label="Observación">
                     <Textarea rows={2} value={obsDespacho} onChange={e => setObsDespacho(e.target.value)} placeholder="Notas..." />
                   </Field>
@@ -347,6 +378,94 @@ export default function AdminPanel() {
               </>
             )}
           </Card>
+        </div>
+      )}
+
+      {tab === 'finalizadas' && (
+        <div className="px-7 py-5 space-y-4">
+          {despEjecutados.length === 0 ? (
+            <Card><EmptyState icon="check-circle" msg="Sin obras finalizadas aún" /></Card>
+          ) : (
+            despEjecutados.map(d => {
+              const ordenRel = ordenes.find(o => o.id === d.of_id);
+              const anticipo = ordenRel?.anticipo;
+              return (
+                <Card key={d.id}>
+                  <div className="px-5 py-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-base font-bold text-zinc-100">D-{d.id}</span>
+                        <span className="font-mono text-sm text-orange-400">Lote-{d.lote_id}</span>
+                        {ordenRel && (
+                          <span className="font-mono text-sm text-blue-400">OF-{ordenRel.id} — {ordenRel.cliente}</span>
+                        )}
+                        <EstadoBadge estado={d.estado} />
+                      </div>
+                      <span className="font-mono text-xs text-zinc-500">{d.updated_at?.split('T')[0]}</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-6 mb-4">
+                      <div>
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Destino</p>
+                        <p className="text-sm text-zinc-300">{d.destino}</p>
+                      </div>
+                      <div>
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Transportista</p>
+                        <p className="text-sm text-zinc-300">{d.transportista}</p>
+                      </div>
+                      {ordenRel && (
+                        <div>
+                          <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Responsable OF</p>
+                          <p className="text-sm text-zinc-300">{ordenRel.responsable_nombre ?? '—'}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-zinc-800">
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/50 px-3 py-2.5">
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
+                          Comprobante de anticipo
+                        </p>
+                        {anticipo?.factura_archivo ? (
+                          <div className="flex items-center gap-2 text-xs text-emerald-400">
+                            <Icon name="check-circle" size={13} />
+                            <span className="truncate">{anticipo.factura_archivo.nombre}</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-zinc-600">No adjuntado</p>
+                        )}
+                      </div>
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/50 px-3 py-2.5">
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
+                          Comprobante de saldo
+                        </p>
+                        {d.comprobante_saldo ? (
+                          <a
+                            href={d.comprobante_saldo}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                          >
+                            <Icon name="arrow-right" size={13} />
+                            Ver comprobante
+                          </a>
+                        ) : (
+                          <p className="text-xs text-zinc-600">No adjuntado</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {d.observacion_admin && (
+                      <div className="mt-3 pt-3 border-t border-zinc-800">
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Observación</p>
+                        <p className="text-xs text-zinc-300">{d.observacion_admin}</p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              );
+            })
+          )}
         </div>
       )}
     </div>

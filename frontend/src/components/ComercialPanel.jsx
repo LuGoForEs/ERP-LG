@@ -14,7 +14,7 @@ export default function ComercialPanel({ openNewSignal }) {
   const [filter, setFilter] = React.useState('todas');
   const [search, setSearch] = React.useState('');
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [form, setForm] = React.useState({ cliente: '', descripcion: '', plazo_valor: '', plazo_unidad: 'dias', anticipo_valor: '', anticipo_moneda: 'ARS' });
+  const [form, setForm] = React.useState({ cliente: '', descripcion: '', plazo_valor: '', plazo_unidad: 'dias', anticipo_valor: '', anticipo_moneda: 'ARS', plazo_anticipo_dias: '7' });
   const [errors, setErrors] = React.useState({});
   const [saving, setSaving] = React.useState(false);
   const toast = useToast();
@@ -67,11 +67,12 @@ export default function ComercialPanel({ openNewSignal }) {
         plazo_entrega: `${form.plazo_valor} ${form.plazo_unidad}`,
         monto_anticipo: parseFloat(form.anticipo_valor),
         moneda_anticipo: form.anticipo_moneda,
+        plazo_anticipo_dias: parseInt(form.plazo_anticipo_dias) || 7,
       });
       await load();
       toast({ msg: `OF-${newOf.id} creada para ${newOf.cliente}` });
       setDialogOpen(false);
-      setForm({ cliente: '', descripcion: '', plazo_valor: '', plazo_unidad: 'dias', anticipo_valor: '', anticipo_moneda: 'ARS' });
+      setForm({ cliente: '', descripcion: '', plazo_valor: '', plazo_unidad: 'dias', anticipo_valor: '', anticipo_moneda: 'ARS', plazo_anticipo_dias: '7' });
       setErrors({});
       setSelected(newOf);
     } catch (e) {
@@ -187,6 +188,16 @@ export default function ComercialPanel({ openNewSignal }) {
                     </p>
                   </div>
                   <div>
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Plazo pago anticipo</p>
+                    <p className="text-sm text-zinc-200 font-mono">{selected.plazo_anticipo_dias ?? 7} días</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Responsable</p>
+                    <p className="text-sm text-zinc-200">{selected.responsable_nombre ?? '—'}</p>
+                  </div>
+                  <div>
                     <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">ID interno</p>
                     <p className="text-sm text-zinc-200 font-mono">#{String(selected.id).padStart(5, '0')}</p>
                   </div>
@@ -259,6 +270,18 @@ export default function ComercialPanel({ openNewSignal }) {
               </div>
             </Field>
           </div>
+          <Field label="Plazo para pago de anticipo (días)" required>
+            <Input
+              type="number"
+              min="1"
+              value={form.plazo_anticipo_dias}
+              onChange={e => setForm({ ...form, plazo_anticipo_dias: e.target.value })}
+              placeholder="7"
+            />
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Días hábiles. Vencido este plazo sin validar, el sistema rechaza la OF automáticamente.
+            </p>
+          </Field>
         </div>
         <div className="border-t border-zinc-800 px-5 py-3 bg-zinc-900/40 flex justify-end gap-2 rounded-b-lg">
           <Button variant="ghost" onClick={() => { setDialogOpen(false); setErrors({}); }}>Cancelar</Button>

@@ -118,7 +118,7 @@ class PanolViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='ingresos')
     def list_ingresos(self, request):
-        ingresos = Ingreso.objects.all()
+        ingresos = Ingreso.objects.select_related('factura_id').order_by('-id')
         return Response({
             "data": [
                 {
@@ -128,6 +128,8 @@ class PanolViewSet(viewsets.ViewSet):
                     "estado": i.estado,
                     "verificacion_estado": i.verificacion_estado,
                     "verificacion_notas": i.verificacion_notas,
+                    "created_at": i.created_at.isoformat(),
+                    "tiene_pdf": bool(i.factura_id.pdf_archivo and i.factura_id.pdf_archivo.get('datos')),
                 }
                 for i in ingresos
             ]
@@ -192,15 +194,42 @@ class PanolViewSet(viewsets.ViewSet):
         })
 
     @extend_schema(responses={200: dict})
+    def materiales_of(self, request, of_id=None):
+        from desarrollo.models import PedidoMaterial
+        from compras.models import FacturaCompra, MaterialCompra as MC
+
+        pms = PedidoMaterial.objects.filter(of_id_id=of_id)
+        facturas = FacturaCompra.objects.filter(pedido_material_id__in=pms, estado='ingresada')
+        mcs = MC.objects.filter(factura_id__in=facturas).select_related('insumo')
+
+        stocks = {s.insumo.nombre: s.cantidad for s in Stock.objects.select_related('insumo').all()}
+
+        material_map = {}
+        for mc in mcs:
+            nombre = mc.insumo.nombre
+            if nombre not in material_map:
+                material_map[nombre] = {
+                    'nombre': nombre,
+                    'cantidad': float(mc.cantidad),
+                    'unidad': mc.insumo.unidad,
+                    'stock_actual': stocks.get(nombre, 0),
+                }
+            else:
+                material_map[nombre]['cantidad'] += float(mc.cantidad)
+
+        return Response({'data': list(material_map.values())})
+
+    @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='movimientos')
     def list_movimientos(self, request):
-        movimientos = Movimiento.objects.prefetch_related('items__insumo').all()
+        movimientos = Movimiento.objects.prefetch_related('items__insumo').order_by('-id')
         return Response({
             "data": [
                 {
                     "id": m.id,
                     "of_id": m.of_id_id,
                     "estado": m.estado,
+                    "created_at": m.created_at.isoformat(),
                     "materiales": [
                         {"nombre": it.insumo.nombre, "cantidad": it.cantidad}
                         for it in m.items.all()

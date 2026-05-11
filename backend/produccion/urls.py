@@ -7,4 +7,5 @@ def module_status(request): return JsonResponse({"module": "Producción", "statu
 urlpatterns = [
     path('', module_status),
     path('lotes-terminados', ProduccionViewSet.as_view({'get': 'list_lotes', 'post': 'finalizar_lote'})),
+    path('lotes/<int:pk>/avanzar', ProduccionViewSet.as_view({'post': 'avanzar_estado'})),
 ]

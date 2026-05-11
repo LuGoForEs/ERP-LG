@@ -22,4 +22,4 @@ class LoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Lote
-        fields = ['id', 'of_id', 'descripcion', 'planos_asociados', 'movimientos_asociados', 'estado', 'created_at', 'updated_at']
+        fields = ['id', 'of_id', 'descripcion', 'planos_asociados', 'movimientos_asociados', 'estado', 'observaciones', 'created_at', 'updated_at']

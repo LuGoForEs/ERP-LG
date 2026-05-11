@@ -63,7 +63,7 @@ class DesarrolloViewSet(viewsets.ViewSet):
                 descripcion=item_data.get('descripcion'),
                 uso_en=item_data.get('uso_en', ''),
                 observaciones=item_data.get('observaciones', ''),
-                oc_fecha=item_data.get('oc_fecha', '')
+                oc_fecha=item_data.get('oc_fecha') or None
             )
 
         return Response({

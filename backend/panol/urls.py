@@ -10,4 +10,5 @@ urlpatterns = [
     path('ingresos', PanolViewSet.as_view({'get': 'list_ingresos', 'post': 'registrar_ingreso'})),
     path('movimientos', PanolViewSet.as_view({'get': 'list_movimientos'})),
     path('movimientos/produccion', PanolViewSet.as_view({'post': 'despachar_a_produccion'})),
+    path('materiales-of/<int:of_id>', PanolViewSet.as_view({'get': 'materiales_of'})),
 ]

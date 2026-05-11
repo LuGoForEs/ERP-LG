@@ -165,6 +165,20 @@ SIMPLE_JWT = {
 # Cloudflare reCAPTCHA
 RECAPTCHA_SECRET_KEY = config('RECAPTCHA_SECRET_KEY', default='')
 
+# Celery
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BROKER_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_TIMEZONE = 'America/Argentina/Buenos_Aires'
+CELERY_ENABLE_UTC = True
+CELERY_BEAT_SCHEDULE = {
+    'rechazar-of-vencidas-19hs': {
+        'task': 'comercial.tasks.rechazar_ofs_vencidas',
+        'schedule': crontab(hour=19, minute=0),
+    },
+}
+
 # Spectacular Settings
 SPECTACULAR_SETTINGS = {
     'TITLE': 'ERP API',

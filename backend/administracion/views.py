@@ -97,9 +97,12 @@ class AdministracionViewSet(viewsets.ViewSet):
 
         aprobado = str(request.data.get('aprobado')).lower() in ['true', '1', 't', 'y', 'yes']
         observacion = request.data.get('observacion', "")
+        comprobante = request.FILES.get('comprobante_saldo')
 
         despacho.estado = "autorizado" if aprobado else "rechazado"
         despacho.observacion_admin = observacion
+        if comprobante:
+            despacho.comprobante_saldo = comprobante
         despacho.save()
 
         return Response({

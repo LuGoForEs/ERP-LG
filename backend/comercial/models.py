@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 class OrdenFabricacion(models.Model):
     cliente = models.CharField(max_length=255)
@@ -8,6 +9,12 @@ class OrdenFabricacion(models.Model):
     moneda_anticipo = models.CharField(max_length=10, default="ARS")
     anticipo_descripcion = models.TextField(null=True, blank=True)
     estado = models.CharField(max_length=50, default="pendiente_anticipo")
+    responsable = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='ordenes_fabricacion',
+        db_column='responsable_id'
+    )
+    plazo_anticipo_dias = models.IntegerField(default=7)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

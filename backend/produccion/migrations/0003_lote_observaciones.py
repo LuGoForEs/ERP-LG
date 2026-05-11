@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('produccion', '0002_lote_observaciones_y_estado'),
+        ('produccion', '0001_initial'),
     ]
 
     operations = [

@@ -50,7 +50,9 @@ class OrdenFabricacionViewSet(viewsets.ModelViewSet):
             monto_anticipo=float(data.get('monto_anticipo') or 0),
             moneda_anticipo=data.get('moneda_anticipo', 'ARS'),
             anticipo_descripcion=data.get('anticipo_descripcion'),
-            estado='pendiente_anticipo'
+            estado='pendiente_anticipo',
+            responsable=request.user,
+            plazo_anticipo_dias=data.get('plazo_anticipo_dias', 7),
         )
 
         anticipo = Anticipo.objects.create(

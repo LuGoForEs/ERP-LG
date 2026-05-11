@@ -38,6 +38,7 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75 }) {
     'users':       <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
     'user-plus':   <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></>,
     'edit':        <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+    'mail':        <><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>,
   };
   return (
     <svg
@@ -657,19 +658,17 @@ export function ModuleHeader({ module, subtitle, actions }) {
 }
 
 // ─── SHORTCUTS DIALOG ─────────────────────────────────────────────────────────
-export function ShortcutsDialog({ open, onClose }) {
+export function ShortcutsDialog({ open, onClose, allowedPanels }) {
+  const canSee = (id) => !allowedPanels || allowedPanels.has(id);
+
+  const navItems = V2_MODULES
+    .filter(m => canSee(m.id))
+    .map(m => ({ keys: ['G', m.shortcut.toUpperCase()], desc: `Ir a ${m.name}` }));
+
   const sections = [
     {
       title: 'Navegación global',
-      items: [
-        { keys: ['G', 'C'], desc: 'Ir a Comercial' },
-        { keys: ['G', 'A'], desc: 'Ir a Administración' },
-        { keys: ['G', 'D'], desc: 'Ir a Desarrollo' },
-        { keys: ['G', 'P'], desc: 'Ir a Compras' },
-        { keys: ['G', 'N'], desc: 'Ir a Pañol' },
-        { keys: ['G', 'R'], desc: 'Ir a Producción' },
-        { keys: ['G', 'L'], desc: 'Ir a Logística' },
-      ],
+      items: navItems,
     },
     {
       title: 'Acciones universales',
@@ -680,21 +679,21 @@ export function ShortcutsDialog({ open, onClose }) {
         { keys: ['?'], desc: 'Mostrar este panel de atajos' },
       ],
     },
-    {
+    ...(canSee('administracion') ? [{
       title: 'Administración',
       items: [
         { keys: ['1'], desc: 'Tab → Anticipos' },
         { keys: ['2'], desc: 'Tab → Despachos' },
       ],
-    },
-    {
+    }] : []),
+    ...(canSee('desarrollo') ? [{
       title: 'Desarrollo',
       items: [
         { keys: ['P'], desc: 'Tab → Pedido de material (OF seleccionada)' },
         { keys: ['L'], desc: 'Tab → Plano de producción (OF seleccionada)' },
       ],
-    },
-    {
+    }] : []),
+    ...(canSee('panol') ? [{
       title: 'Pañol',
       items: [
         { keys: ['1'], desc: 'Tab → Stock & movimientos' },
@@ -702,7 +701,7 @@ export function ShortcutsDialog({ open, onClose }) {
         { keys: ['I'], desc: 'Modo → Ingreso de materiales' },
         { keys: ['D'], desc: 'Modo → Despacho a producción' },
       ],
-    },
+    }] : []),
   ];
 
   return (
@@ -758,7 +757,7 @@ export function useSearchShortcut(inputRef, onClear) {
 }
 
 // ─── KEYBOARD HOOK ────────────────────────────────────────────────────────────
-export function useGlobalShortcuts(onModule, onShowShortcuts, onNew) {
+export function useGlobalShortcuts(onModule, onShowShortcuts, onNew, allowedPanels) {
   const gPressed = React.useRef(false);
   const gTimeout = React.useRef(null);
 
@@ -778,7 +777,10 @@ export function useGlobalShortcuts(onModule, onShowShortcuts, onNew) {
         return;
       }
       if (gPressed.current) {
-        const mod = V2_MODULES.find(m => m.shortcut === e.key.toLowerCase());
+        const modules = allowedPanels
+          ? V2_MODULES.filter(m => allowedPanels.has(m.id))
+          : V2_MODULES;
+        const mod = modules.find(m => m.shortcut === e.key.toLowerCase());
         if (mod) { e.preventDefault(); onModule(mod.id); }
         gPressed.current = false;
         clearTimeout(gTimeout.current);
@@ -786,5 +788,5 @@ export function useGlobalShortcuts(onModule, onShowShortcuts, onNew) {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onModule, onShowShortcuts, onNew]);
+  }, [onModule, onShowShortcuts, onNew, allowedPanels]);
 }

@@ -102,11 +102,15 @@ export const api = {
     disable2fa:  body         => post('/auth/2fa/disable/', body),
     verify2fa:   body         => post('/auth/2fa/verify/', body),
     // User management (SuperUser only)
-    listUsers:   ()           => get('/auth/users/'),
-    createUser:  body         => post('/auth/users/create/', body),
-    updateUser:  (id, body)   => put(`/auth/users/${id}/`, body),
-    deleteUser:  id           => del(`/auth/users/${id}/`),
-    activate:    body         => post('/auth/activate/', body),
+    listUsers:         ()           => get('/auth/users/'),
+    createUser:        body         => post('/auth/users/create/', body),
+    updateUser:        (id, body)   => put(`/auth/users/${id}/`, body),
+    deleteUser:        id           => del(`/auth/users/${id}/`),
+    resendActivation:  body         => post('/auth/users/resend-activation/', body),
+    getActivationLink: id           => post(`/auth/users/${id}/activation-link/`, {}),
+    activate:              body     => post('/auth/activate/', body),
+    requestPasswordReset:  body     => post('/auth/password-reset/', body),
+    confirmPasswordReset:  body     => post('/auth/password-reset/confirm/', body),
   },
 
   comercial: {

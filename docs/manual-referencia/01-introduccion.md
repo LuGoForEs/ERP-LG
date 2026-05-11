@@ -28,7 +28,7 @@ Las autorizaciones (anticipo, despacho) dependen de comunicación humana punto a
 
 ERP-LG resuelve estos problemas mediante:
 
-- **Modelo de datos centralizado** en PostgreSQL 16: una única fuente de verdad compartida por todos los dominios
+- **Modelo de datos centralizado** en MariaDB 10.11: una única fuente de verdad compartida por todos los dominios
 - **APIs REST por dominio**: cada área expone y consume datos a través de contratos bien definidos
 - **Validaciones de estado en capa de negocio**: una OF no puede avanzar al siguiente dominio si no cumple las precondiciones (estado correcto, entidades previas existentes)
 - **Timeline de auditoría**: el endpoint `GET /api/v1/comercial/ordenes-fabricacion/{id}/timeline/` reconstruye cronológicamente todos los eventos asociados a una OF, cruzando los 7 dominios

@@ -8,7 +8,7 @@
 El proyecto ERP-LG está contenerizado para garantizar paridad entre entornos de desarrollo y futuros despliegues en producción. La arquitectura no utiliza un único `docker-compose.yml` monolítico, sino **3 stacks separados**.
 
 ### 6.1.1 Los 3 Stacks Docker
-1. **Database Stack (`database/docker-compose.yml`)**: Contiene el motor PostgreSQL. Es el primer servicio que debe levantarse porque almacena el estado del sistema.
+1. **Database Stack (`database/docker-compose.yml`)**: Contiene el motor MariaDB 10.11. Es el primer servicio que debe levantarse porque almacena el estado del sistema.
 2. **Backend Stack (`backend/docker-compose.yml`)**: Ejecuta el servidor Django (`manage.py runserver`). Depende de que la base de datos esté lista para aceptar conexiones.
 3. **Frontend Stack (`frontend/docker-compose.yml`)**: Ejecuta el servidor de desarrollo de Vite.
 
@@ -16,7 +16,7 @@ El proyecto ERP-LG está contenerizado para garantizar paridad entre entornos de
 Para aislar dominios de falla y facilitar flujos de CI/CD. Por ejemplo, en un entorno de producción o QA, el stack de base de datos no se utiliza (se apunta a un Amazon RDS gestionado), pero sí se despliegan los contenedores de backend y frontend de forma independiente.
 
 ### 6.1.2 La Red Externa: `erp-network`
-Para que los contenedores en diferentes stacks puedan comunicarse (ej. el backend contactando al `postgres`, o el proxy de Vite contactando al `backend`), se define una red compartida tipo bridge llamada `erp-network`.
+Para que los contenedores en diferentes stacks puedan comunicarse (ej. el backend contactando al `database`, o el proxy de Vite contactando al `backend`), se define una red compartida tipo bridge llamada `erp-network`.
 El script de orquestación (`erp.sh`) se asegura de crear esta red si no existe antes de levantar los contenedores.
 
 ### 6.1.3 Healthchecks

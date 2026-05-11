@@ -375,7 +375,7 @@ def registrar_factura(self, request):
     # Si cualquier paso falla → rollback total (ningún cambio persiste)
 ```
 
-`@transaction.atomic` envuelve la función en una transacción de base de datos. Si cualquier operación dentro lanza una excepción (incluidas las de DRF como `ValidationError`, `NotFound`), PostgreSQL hace rollback de todas las operaciones del bloque. La base de datos queda en el estado previo a la llamada.
+`@transaction.atomic` envuelve la función en una transacción de base de datos. Si cualquier operación dentro lanza una excepción (incluidas las de DRF como `ValidationError`, `NotFound`), MariaDB hace rollback de todas las operaciones del bloque. La base de datos queda en el estado previo a la llamada.
 
 ### Operaciones con `@transaction.atomic` en el sistema
 

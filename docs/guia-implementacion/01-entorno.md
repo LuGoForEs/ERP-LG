@@ -47,7 +47,7 @@ ERP-LG/
 │   ├── requirements.txt        # Dependencias Python
 │   ├── manage.py               # CLI de Django
 │   ├── Dockerfile.dev          # Imagen Docker para desarrollo
-│   ├── docker-compose.yml      # Stack backend + PostgreSQL
+│   ├── docker-compose.yml      # Stack backend + MariaDB
 │   └── pytest.ini              # Configuración de tests
 ├── frontend/                   # React 18 + Vite 6
 │   ├── src/
@@ -118,7 +118,7 @@ up() {
   ensure_docker          # (1) Verifica o arranca Docker Desktop
   
   docker compose -f "$ROOT/database/docker-compose.yml" up -d
-  wait_db_healthy        # (2) Espera healthcheck de PostgreSQL
+  wait_db_healthy        # (2) Espera healthcheck de MariaDB
   
   docker compose -f "$ROOT/backend/docker-compose.yml" up --build -d
   # (3) Construye imagen del backend y levanta el contenedor
@@ -204,7 +204,7 @@ El backend usa `python-decouple` para leer configuración desde variables de ent
 
 ```yaml
 environment:
-  DATABASE_URL: postgres://erp_user:erp_password@db:5432/erp_db
+  DATABASE_URL: mysql://erp_user:erp_password@db:3306/erp_db
   SECRET_KEY: django-insecure-dev-key-change-in-production
   DEBUG: "True"
   ALLOWED_HOSTS: "*"
@@ -231,7 +231,7 @@ DATABASES = {
 | `SECRET_KEY` | Clave de ejemplo en compose | Generada con `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"` |
 | `ALLOWED_HOSTS` | `*` | Dominio específico |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | URL del frontend en producción |
-| `DATABASE_URL` | Postgres local en Docker | URL de base de datos gestionada |
+| `DATABASE_URL` | MariaDB local en Docker | URL de base de datos gestionada |
 
 > **Regla crítica:** El archivo `.env` con valores de producción nunca se comitea al repositorio. Se agrega a `.gitignore`. El `docker-compose.yml` de desarrollo puede incluir valores de ejemplo porque son datos sin valor fuera del entorno local.
 
@@ -315,7 +315,7 @@ erp-frontend     Up
 
 ```bash
 ./erp.sh logs backend     # Logs de Django
-./erp.sh logs database    # Logs de PostgreSQL
+./erp.sh logs database    # Logs de MariaDB
 ./erp.sh logs frontend    # Logs de Vite
 ```
 

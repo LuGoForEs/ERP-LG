@@ -54,7 +54,7 @@ erDiagram
 | | `Stock` | Inventario actual valorizado y en unidades. | `insumo` (O2O) |
 | | `Movimiento` | Transacción de entrada/salida de pañol. | `ingreso` (FK), `lote` (FK) |
 | | `MovimientoItem` | Detalle de insumos movidos. | `movimiento` (FK), `insumo` (FK) |
-| **Producción**| `Lote` | Unidad de fabricación en el taller. | `of` (FK) |
+| **Producción**| `Lote` | Unidad de fabricación en el taller. Estado: `pre_produccion`→`produccion`→`final_produccion`→`terminado`→`en_despacho`. `observaciones` JSONField registra cada transición. | `of_id` (FK), `planos` (M2M), `movimientos` (M2M) |
 | **Logística** | `Despacho` | Registro de entrega de Lotes/OF al cliente. | `of` (FK) |
 
 ---
@@ -105,3 +105,4 @@ Se aplicó una decisión estricta de cardinalidad en el modelo `Stock`.
 
 * **`0001_initial.py`**: Representa la estructura monolítica fundacional, creada rápidamente para validación de producto. Contenía strings redundantes y JSONFields para evitar migraciones complejas tempranas.
 * **`0002_*` (Normalización)**: Un conjunto de migraciones aplicadas en todos los dominios (`comercial/0002`, `compras/0002`, `panol/0002`, etc.) que eliminaron campos `_nombre`, agregaron Foreign Keys relacionales hacia los catálogos maestros (`Insumo`, `Proveedor`), y transformaron el modelo a 3NF.
+* **`produccion/0003_lote_observaciones`**: Agrega el campo `observaciones = JSONField(default=list)` al modelo `Lote` para registrar el historial de transiciones de estado con texto de auditoría. La migración `0002` de producción fue fakeada (`--fake`) por desincronía entre la DB y el estado de migraciones; `0003` registra solo el `AddField` real.

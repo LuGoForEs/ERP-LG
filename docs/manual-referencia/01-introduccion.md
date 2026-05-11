@@ -71,8 +71,9 @@ El sistema modela el ciclo completo de una Orden de Fabricación a través de **
 | 4 | Compras | Registra Factura de Compra al proveedor | PM en estado `generado` |
 | 5 | Pañol | Ingresa materiales al stock | FC en estado `registrada` |
 | 6 | Pañol | Despacha materiales a Producción | Stock suficiente |
-| 7 | Producción | Finaliza el Lote | Planos + Movimientos existentes para la OF |
-| 8 | Logística | Crea Despacho y solicita autorización | Lote en estado `terminado` |
+| 7 | Producción | Inicia el Lote (`pre_produccion`) | Planos + Movimientos existentes para la OF |
+| 7b | Producción | Avanza estados del Lote ×4 (con observaciones) | Lote en el estado anterior |
+| 8 | Logística | Crea Despacho y solicita autorización | Lote en estado `terminado` o `en_despacho` |
 | 9 | Administración | Autoriza el Despacho | Despacho en estado `esperando_autorizacion` |
 | 10 | Logística | Ejecuta el Despacho | Despacho en estado `autorizado` |
 
@@ -87,8 +88,8 @@ El sistema modela el ciclo completo de una Orden de Fabricación a través de **
 | Python | 3.12 | Lenguaje de implementación |
 | Django | 5.x | Framework web: ORM, migraciones, admin, middleware |
 | Django REST Framework | 3.15 | Serialización, ViewSets, autenticación, throttling |
-| PostgreSQL | 16 | Base de datos relacional ACID-compliant |
-| psycopg | 3.1 (binary) | Driver Python para PostgreSQL |
+| MariaDB | 10.11 | Base de datos relacional ACID-compliant |
+| mysqlclient | 2.x | Driver Python para MariaDB |
 | drf-spectacular | 0.27 | Generación automática de schema OpenAPI 3.1 |
 | SimpleJWT | 5.3 | Autenticación JWT (configurado, pendiente activación) |
 | django-cors-headers | 4.3 | Manejo de CORS para el frontend |
@@ -209,8 +210,8 @@ Esta decisión garantiza la trazabilidad y la seguridad en operaciones sensibles
 | **Stock** | Cantidad disponible de un insumo en el almacén (pañol). Relación 1:1 con `Insumo` via `OneToOneField`. |
 | **Ingreso** | Registro del ingreso de materiales al stock a partir de una FC. Genera un snapshot inmutable de los materiales ingresados. |
 | **Movimiento** | Egreso de materiales del stock hacia Producción. Contiene múltiples `MovimientoItem`. |
-| **Plano** | Archivo técnico (PDF) asociado a una OF. Metadata almacenada en DB; el archivo no se persiste en disco. |
-| **Lote** | Agrupación de planos y movimientos que representa la producción completada de una OF. Estados: `terminado` → `en_despacho`. |
+| **Plano** | Archivo técnico (PDF) asociado a una OF. Metadata y contenido binario almacenados en la base de datos (`BinaryField`). Se descarga vía `GET /desarrollo/planos/{id}/archivo` con autenticación JWT. |
+| **Lote** | Agrupación de planos y movimientos que representa la producción de una OF. Ciclo de vida: `pre_produccion` → `produccion` → `final_produccion` → `terminado` → `en_despacho`. Cada transición requiere observaciones obligatorias. |
 | **Despacho** | Operación de entrega del lote al cliente. Estados: `pendiente` → `esperando_autorizacion` → `autorizado` / `rechazado` → `ejecutado`. |
 | **Pañol** | Almacén de materiales. Término de uso industrial en Argentina. El módulo homónimo gestiona el stock y los movimientos. |
 | **Timeline** | Reconstrucción cronológica de todos los eventos de una OF, cruzando los 7 dominios. Endpoint: `GET /api/v1/comercial/ordenes-fabricacion/{id}/timeline/`. |

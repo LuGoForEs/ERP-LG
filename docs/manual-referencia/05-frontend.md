@@ -59,7 +59,68 @@ Esto permite que el frontend solicite datos usando paths relativos (`/api/comerc
 
 ---
 
-## 5.5 LetterGlitch: Efecto Canvas 2D
+## 5.5 Sistema de Primitivas (`primitives.jsx`)
+
+Todos los paneles importan un conjunto de componentes base desde `src/components/primitives.jsx`. Esto garantiza consistencia visual sin dependencias externas de UI:
+
+| Primitiva | Descripción |
+|-----------|-------------|
+| `DataTable` | Tabla con columnas ordenables (`sortable: true` + `accessor`), selección de fila, y renderizado de expansión por fila (`renderExpanded`). |
+| `Card` / `CardHeader` / `CardTitle` | Contenedor con borde y fondo zinc. `CardHeader` usa `flex items-center gap-2`. |
+| `Metric` | Card de métrica con ícono, valor numérico y acento de color. |
+| `Button` | Botón con variantes de acento (`rose`, `amber`, `emerald`, etc.) e ícono opcional. |
+| `Field` / `Input` / `Select` | Controles de formulario estilizados. |
+| `EstadoBadge` | Badge de estado con color según valor de cadena. |
+| `useToast` | Hook para mostrar notificaciones efímeras en pantalla. |
+| `useSearchShortcut` | Hook que captura el shortcut `/` del teclado para enfocar el campo de búsqueda. |
+| `ModuleHeader` | Header de módulo con título, subtítulo y slot de acciones (búsqueda, botones). |
+| `EmptyState` | Placeholder cuando una tabla no tiene datos. |
+| `Icon` | Wrapper sobre SVG icons (`search`, `truck`, `alert`, `check-circle`, `package`, `x`, `arrow-right`, `upload`). |
+
+**Nota de diseño:** Cuando `CardHeader` no da el layout necesario (ej. texto largo + botón de cierre en la misma fila), reemplazar con un `<div className="flex items-start justify-between px-4 py-3 border-b border-zinc-800">` y usar `min-w-0 flex-1` en el contenedor de texto y `shrink-0 ml-2` en el botón.
+
+---
+
+## 5.6 Flujo de Producción en el Frontend
+
+`ProduccionPanel.jsx` implementa el flujo de 5 estados con las siguientes reglas:
+
+- **`ProgresoEstados`** es un componente controlado: recibe `activeKey` y `onActiveKeyChange` desde el padre. Los estados con observaciones registradas muestran un punto `·` y son clicables (toggle); los estados futuros son visualmente atenuados y no responden al clic.
+- La observación seleccionada se renderiza **fuera** del contenedor `overflow-x-auto` de la barra de progreso, para que sea siempre visible al desplazarse horizontalmente.
+- Los botones de estado usan `aria-disabled` en lugar de `disabled` para evitar el bug de Firefox donde `disabled` dentro de `overflow: auto` bloquea eventos de clic.
+- El scrollbar del contenedor se estiliza con `::-webkit-scrollbar` (Chrome/Safari) y `scrollbar-width/color` inline (Firefox) para integrarse con la paleta zinc del sistema.
+
+---
+
+## 5.7 Patrón de Descarga de Archivos Protegidos
+
+Los endpoints de descarga PDF (`/planos/{id}/archivo`, `/facturas/{id}/pdf`) requieren el header `Authorization`. El helper `downloadBlob(path)` en `api.js` encapsula este patrón:
+
+```javascript
+// api.js
+async function downloadBlob(path) {
+  let res = await fetch(`${BASE}${path}`, makeOpts(_accessToken));
+  if (res.status === 401) {
+    const newToken = await _tryRefresh();
+    if (newToken) res = await fetch(`${BASE}${path}`, makeOpts(newToken));
+  }
+  if (!res.ok) throw new Error(...);
+  return res.blob();
+}
+```
+
+Los paneles que necesitan abrir un PDF:
+
+```javascript
+const blob = await api.desarrollo.downloadPlano(id); // o api.compras.downloadFacturaPdf(id)
+const url = URL.createObjectURL(blob);
+window.open(url, '_blank');
+setTimeout(() => URL.revokeObjectURL(url), 30000);
+```
+
+---
+
+## 5.8 LetterGlitch: Efecto Canvas 2D
 
 El componente `LetterGlitch.jsx` es responsable del fondo animado corporativo.
 

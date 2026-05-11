@@ -82,7 +82,7 @@ Cada dominio sigue una arquitectura de 4 capas con responsabilidades bien delimi
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      PostgreSQL 16                           │
+│                      MariaDB 10.11                           │
 │  Persistencia ACID. Integridad referencial via FK.           │
 │  Constraints de unicidad (unique=True, OneToOneField).       │
 └─────────────────────────────────────────────────────────────┘
@@ -216,7 +216,40 @@ Esta validación se ejecuta en cada operación de Desarrollo, Producción y Log�
 
 ---
 
-## 2.5 Máquina de Estados del Despacho
+## 2.5 Máquina de Estados del Lote de Producción
+
+```
+POST /produccion/lotes-terminados
+         │
+         ▼
+  ┌──────────────────┐
+  │  pre_produccion  │  (estado inicial al crear el lote)
+  └────────┬─────────┘
+           │  POST /produccion/lotes/{id}/avanzar  (observaciones requeridas)
+           ▼
+  ┌──────────────┐
+  │  produccion  │
+  └──────┬───────┘
+         │
+         ▼
+  ┌──────────────────────┐
+  │  final_produccion    │
+  └──────────┬───────────┘
+             │
+             ▼
+      ┌───────────┐
+      │ terminado │  (lote visible para Logística)
+      └─────┬─────┘
+            │
+            ▼
+     ┌────────────┐
+     │ en_despacho│  (asignado a un Despacho de Logística)
+     └────────────┘
+```
+
+Cada transición registra en `Lote.observaciones` (JSONField) un objeto con `{desde, hacia, texto, fecha}`.
+
+## 2.6 Máquina de Estados del Despacho
 
 ```
 POST /logistica/despachos
@@ -287,6 +320,7 @@ def registrar_factura(self, request):
 | `compras.registrar_factura` | Crea `FacturaCompra` + N `MaterialCompra` + actualiza `PedidoMaterial.estado` |
 | `panol.registrar_ingreso` | Crea `Ingreso` + actualiza N `Stock` + actualiza `FacturaCompra.estado` |
 | `panol.despachar_a_produccion` | Crea `Movimiento` + N `MovimientoItem` + actualiza N `Stock` |
+| `produccion.avanzar_estado` | Actualiza `Lote.estado` + agrega entrada a `Lote.observaciones` (JSONField) |
 
 ---
 
@@ -386,8 +420,9 @@ def stock(self, request): ...
 ```
 
 El schema se sirve en:
-- `GET /api/schema/` — YAML/JSON crudo (para tooling)
-- `GET /api/schema/swagger-ui/` — Swagger UI interactivo (para desarrollo y documentación)
+- `GET /api/schema/` — YAML/JSON crudo (para tooling e importación en Postman/Insomnia)
+- `GET /api/schema/swagger-ui/` — Swagger UI interactivo (exploración de endpoints)
+- `GET /api/schema/redoc/` — ReDoc (documentación de referencia legible)
 
 ---
 

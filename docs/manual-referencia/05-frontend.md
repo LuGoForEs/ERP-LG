@@ -8,8 +8,16 @@
 El frontend está desarrollado en **React 18** utilizando **Vite** como bundler. La arquitectura sigue un patrón de "Componentes de Panel", donde cada dominio de negocio (Comercial, Compras, Pañol, etc.) tiene un componente padre de alto nivel que gestiona todo el estado y renderizado de ese contexto.
 
 * `App.jsx`: Componente raíz. Maneja el layout principal (barra lateral, canvas de fondo) y la lógica de enrutamiento.
-* `components/`: Contiene los paneles por dominio (`ComercialPanel.jsx`, `ComprasPanel.jsx`, etc.) y utilidades visuales compartidas (`LetterGlitch.jsx`).
+* `components/`: Contiene los paneles por dominio (`ComercialPanel.jsx`, `AdminPanel.jsx`, `ComprasPanel.jsx`, etc.) y utilidades visuales compartidas (`LetterGlitch.jsx`).
 * `main.jsx`: Punto de entrada de React, donde se monta la aplicación en el DOM.
+
+**Responsabilidades por panel relevantes a esta sesión:**
+
+| Panel | Cambios implementados |
+|-------|----------------------|
+| `ComercialPanel.jsx` | Formulario "Nueva OF" incluye campo `plazo_anticipo_dias` (días para pago). El detalle de OF muestra `responsable_nombre` y `plazo_anticipo_dias`. |
+| `AdminPanel.jsx` | Tab "Anticipos": lista separada en **Pendientes / Validados / Rechazados** (antes era Pendientes + Procesados juntos). Tab "Despachos": autorización incluye upload de `comprobante_saldo`. Tab nueva **"Obras finalizadas"**: muestra cards con comprobante de anticipo y comprobante de saldo por cada despacho ejecutado. |
+| `LogisticaPanel.jsx` | Dropdown "Nuevo despacho" incluye lotes en estado `terminado` **y** `en_despacho` (antes solo `terminado`). Los lotes con despacho activo (no rechazado) se excluyen del dropdown. |
 
 ---
 
@@ -92,7 +100,31 @@ Todos los paneles importan un conjunto de componentes base desde `src/components
 
 ---
 
-## 5.7 Patrón de Descarga de Archivos Protegidos
+## 5.7 Lógica de Disponibilidad de Lotes en Logística
+
+El dropdown "Nuevo despacho" en `LogisticaPanel.jsx` calcula los lotes disponibles en el momento de carga del componente:
+
+```javascript
+const occupiedLoteIds = new Set(
+  desps.filter(d => d.estado !== 'rechazado').map(d => d.lote_id)
+);
+setLotes(lotesData.filter(l =>
+  (l.estado === 'terminado' || l.estado === 'en_despacho') &&
+  !occupiedLoteIds.has(l.id)
+));
+```
+
+**Por qué incluir `en_despacho`:** Un lote puede llegar a `en_despacho` por dos caminos:
+1. Producción lo avanzó hasta ahí via `avanzar_estado` (el último step del workflow de Producción).
+2. Logística creó un despacho y el backend lo marcó como `en_despacho`.
+
+En el caso 1, el lote no tiene despacho y debe aparecer en el dropdown. En el caso 2, el lote ya tiene un despacho activo y se excluye vía `occupiedLoteIds`.
+
+**Manejo de rechazo:** Si un despacho está `rechazado`, el lote queda fuera de `occupiedLoteIds` y vuelve a aparecer disponible para un nuevo intento.
+
+---
+
+## 5.8 Patrón de Descarga de Archivos Protegidos
 
 Los endpoints de descarga PDF (`/planos/{id}/archivo`, `/facturas/{id}/pdf`) requieren el header `Authorization`. El helper `downloadBlob(path)` en `api.js` encapsula este patrón:
 
@@ -120,7 +152,32 @@ setTimeout(() => URL.revokeObjectURL(url), 30000);
 
 ---
 
-## 5.8 LetterGlitch: Efecto Canvas 2D
+## 5.9 Upload de Archivos desde el Frontend
+
+Dos operaciones del sistema envían archivos vía `multipart/form-data`:
+
+| Operación | Panel | Campo | Endpoint |
+|-----------|-------|-------|----------|
+| Comprobante de anticipo | `AdminPanel.jsx` | `archivo` (FileInput) | `PUT /administracion/anticipos/{id}/validar` |
+| Comprobante de saldo | `AdminPanel.jsx` | `comprobanteSaldo` (FileInput) | `PUT /administracion/despachos/{id}/aprobar` |
+
+**Patrón de envío:**
+
+```javascript
+// AdminPanel.jsx — handleAprobarDespacho
+const fd = new FormData();
+fd.append('aprobado', aprobado ? 'true' : 'false');
+fd.append('observacion', obsDespacho);
+if (comprobanteSaldo) fd.append('comprobante_saldo', comprobanteSaldo);
+await api.administracion.aprobarDespacho(selectedDespacho.id, fd, true);
+// El tercer argumento `true` indica isFormData en api.js → no se serializa a JSON
+```
+
+La función `request()` de `api.js` detecta `isFormData=true` y omite el header `Content-Type: application/json`, dejando que el navegador establezca `multipart/form-data` con el boundary correcto automáticamente.
+
+---
+
+## 5.10 LetterGlitch: Efecto Canvas 2D
 
 El componente `LetterGlitch.jsx` es responsable del fondo animado corporativo.
 

@@ -65,8 +65,9 @@ El sistema modela el ciclo completo de una Orden de Fabricación a través de **
 
 | Paso | Dominio | Operación | Precondición |
 |------|---------|-----------|--------------|
-| 1 | Comercial | Crea Orden de Fabricación + Anticipo | Ninguna |
-| 2 | Administración | Valida pago del anticipo | Anticipo en estado `pendiente` |
+| 1 | Comercial | Crea Orden de Fabricación + Anticipo (con `plazo_anticipo_dias`) | Ninguna |
+| 2a | Administración | Valida pago del anticipo | Anticipo en estado `pendiente` |
+| 2b | Sistema (Celery) | Rechaza automáticamente a las 19:00 ART si `plazo_anticipo_dias` venció | Anticipo en estado `pendiente` y plazo vencido |
 | 3 | Desarrollo | Genera Pedido de Material + envía Planos | OF en estado `aprobada` |
 | 4 | Compras | Registra Factura de Compra al proveedor | PM en estado `generado` |
 | 5 | Pañol | Ingresa materiales al stock | FC en estado `registrada` |
@@ -96,8 +97,8 @@ El sistema modela el ciclo completo de una Orden de Fabricación a través de **
 | django-filter | 24 | Filtrado declarativo en querysets |
 | python-decouple | 3.8 | Gestión de variables de entorno |
 | WhiteNoise | 6.7 | Servicio de archivos estáticos sin Nginx |
-| Celery | 5.4 | Cola de tareas asíncronas (instalado, pendiente uso) |
-| Redis | 5.0 | Broker para Celery |
+| Celery | 5.4 | Cola de tareas asíncronas + Celery Beat para tareas programadas |
+| Redis | 7-alpine | Broker para Celery (servicio `redis` en docker-compose.prod.yml) |
 | Gunicorn | 22 | WSGI server para producción |
 | pytest-django | 4.8 | Framework de testing |
 | factory-boy | 3.3 | Generación de fixtures de prueba |
@@ -200,8 +201,9 @@ Esta decisión garantiza la trazabilidad y la seguridad en operaciones sensibles
 
 | Término | Descripción técnica |
 |---------|---------------------|
-| **OF** | Orden de Fabricación. Entidad central del sistema. Representa un pedido de un cliente. Tiene un ciclo de vida con estados: `pendiente_anticipo` → `aprobada` / `rechazada_anticipo`. |
-| **Anticipo** | Pago parcial adelantado por el cliente para iniciar la fabricación. Está asociado 1:1 a una OF. Estados: `pendiente` → `validado` / `rechazado`. |
+| **OF** | Orden de Fabricación. Entidad central del sistema. Representa un pedido de un cliente. Tiene un ciclo de vida con estados: `pendiente_anticipo` → `aprobada` / `rechazada_anticipo`. Incluye `responsable` (usuario que la creó, asignado automáticamente) y `plazo_anticipo_dias` (días para que Administración valide el pago antes del rechazo automático). |
+| **Anticipo** | Pago parcial adelantado por el cliente para iniciar la fabricación. Está asociado 1:1 a una OF. Estados: `pendiente` → `validado` / `rechazado`. Si el plazo `plazo_anticipo_dias` vence sin validación, Celery Beat lo rechaza automáticamente a las 19:00 ART. |
+| **Despacho** | Operación de entrega del lote al cliente. Estados: `pendiente` → `esperando_autorizacion` → `autorizado` / `rechazado` → `ejecutado`. Incluye `comprobante_saldo` (FileField) que Administración adjunta al autorizar. |
 | **PM** | Pedido de Material. Listado de insumos y cantidades necesarios para fabricar la OF. Lo genera el área de Desarrollo. Estados: `generado` → `facturado`. |
 | **OC** | Orden de Compra. Emitida al proveedor. Se genera automáticamente junto con el PM. Modelo en `desarrollo.OrdenCompra`. |
 | **FC** | Factura de Compra. Documento que registra la compra efectiva a un proveedor. Está asociada a un PM. Estados: `registrada` → `ingresada`. |
@@ -212,7 +214,6 @@ Esta decisión garantiza la trazabilidad y la seguridad en operaciones sensibles
 | **Movimiento** | Egreso de materiales del stock hacia Producción. Contiene múltiples `MovimientoItem`. |
 | **Plano** | Archivo técnico (PDF) asociado a una OF. Metadata y contenido binario almacenados en la base de datos (`BinaryField`). Se descarga vía `GET /desarrollo/planos/{id}/archivo` con autenticación JWT. |
 | **Lote** | Agrupación de planos y movimientos que representa la producción de una OF. Ciclo de vida: `pre_produccion` → `produccion` → `final_produccion` → `terminado` → `en_despacho`. Cada transición requiere observaciones obligatorias. |
-| **Despacho** | Operación de entrega del lote al cliente. Estados: `pendiente` → `esperando_autorizacion` → `autorizado` / `rechazado` → `ejecutado`. |
 | **Pañol** | Almacén de materiales. Término de uso industrial en Argentina. El módulo homónimo gestiona el stock y los movimientos. |
 | **Timeline** | Reconstrucción cronológica de todos los eventos de una OF, cruzando los 7 dominios. Endpoint: `GET /api/v1/comercial/ordenes-fabricacion/{id}/timeline/`. |
 | **Bounded Context** | Concepto de Domain-Driven Design. Cada dominio del ERP es un Bounded Context: tiene su propio vocabulario, sus propios modelos y sus propias reglas de negocio. En Django, cada Bounded Context es una app. |

@@ -287,7 +287,73 @@ El `Despacho` involucra dos dominios en su ciclo de vida: Logística crea y ejec
 
 ---
 
-## 2.6 `@transaction.atomic`: Atomicidad de Operaciones Complejas
+## 2.7 Tareas Asíncronas y Programadas: Celery + Beat
+
+ERP-LG incorpora Celery para ejecutar lógica de negocio fuera del ciclo request-response de Django. El caso de uso actual es el rechazo automático de OFs con anticipo vencido.
+
+### Arquitectura
+
+```
+┌──────────────┐     REDIS (broker)     ┌────────────────┐
+│ celery-beat  │ ──── encola tarea ────▶ │ celery-worker  │
+│  (scheduler) │                         │  (ejecuta)     │
+└──────────────┘                         └────────┬───────┘
+  cron: 19:00 ART                                 │
+  cada día                               ┌────────▼────────┐
+                                         │   MariaDB        │
+                                         │  (escribe OF     │
+                                         │   rechazada)     │
+                                         └─────────────────┘
+```
+
+Tres servicios Docker independientes: `redis` (broker), `celery-worker` (procesa), `celery-beat` (dispara según cron). Todos comparten la misma imagen del backend.
+
+### Configuración (`config/settings.py`)
+
+```python
+from celery.schedules import crontab
+
+CELERY_BROKER_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_TIMEZONE   = 'America/Argentina/Buenos_Aires'
+CELERY_BEAT_SCHEDULE = {
+    'rechazar-of-vencidas-19hs': {
+        'task': 'comercial.tasks.rechazar_ofs_vencidas',
+        'schedule': crontab(hour=19, minute=0),
+    },
+}
+```
+
+### Tarea: `comercial.tasks.rechazar_ofs_vencidas`
+
+```python
+# comercial/tasks.py
+@shared_task(name='comercial.tasks.rechazar_ofs_vencidas')
+def rechazar_ofs_vencidas():
+    ahora = timezone.now()
+    for of in OrdenFabricacion.objects.filter(estado='pendiente_anticipo'):
+        if of.plazo_anticipo_dias <= 0:
+            continue
+        limite = of.created_at + timedelta(days=of.plazo_anticipo_dias)
+        if ahora >= limite:
+            of.estado = 'rechazada_anticipo'
+            of.save(update_fields=['estado', 'updated_at'])
+            Anticipo.objects.filter(of_id=of, estado='pendiente').update(
+                estado='rechazado',
+                observacion='Rechazado automáticamente por vencimiento del plazo de anticipo.',
+            )
+```
+
+**Por qué no en el request-response:** Un rechazo masivo de OFs al final del día no es una operación que debe bloquear un request HTTP. Celery Beat ejecuta la tarea en background a hora fija, con acceso directo al ORM de Django, sin impacto en los workers de Gunicorn.
+
+### Variables de entorno requeridas
+
+| Variable | Valor en prod | Descripción |
+|----------|---------------|-------------|
+| `REDIS_URL` | `redis://redis:6379/0` | URL del broker Redis (nombre de servicio Docker) |
+
+---
+
+## 2.8 `@transaction.atomic`: Atomicidad de Operaciones Complejas
 
 Varias operaciones del sistema afectan múltiples tablas. Sin manejo explícito de transacciones, un error en el paso 3 de 4 dejaría la base de datos en un estado inconsistente.
 
@@ -313,7 +379,7 @@ def registrar_factura(self, request):
 
 ### Operaciones con `@transaction.atomic` en el sistema
 
-| Vista | Operaciones atómicas |
+| Vista / Tarea | Operaciones atómicas |
 |-------|---------------------|
 | `comercial.create` | Crea `OrdenFabricacion` + `Anticipo` |
 | `desarrollo.create_pedido_material` | Crea `PedidoMaterial` + `OrdenCompra` + N `PedidoMaterialItem` |
@@ -321,10 +387,11 @@ def registrar_factura(self, request):
 | `panol.registrar_ingreso` | Crea `Ingreso` + actualiza N `Stock` + actualiza `FacturaCompra.estado` |
 | `panol.despachar_a_produccion` | Crea `Movimiento` + N `MovimientoItem` + actualiza N `Stock` |
 | `produccion.avanzar_estado` | Actualiza `Lote.estado` + agrega entrada a `Lote.observaciones` (JSONField) |
+| `comercial.tasks.rechazar_ofs_vencidas` | Actualiza `OrdenFabricacion.estado` + `Anticipo.estado` de múltiples registros |
 
 ---
 
-## 2.7 Sincronismo y el Modelo Request-Response
+## 2.9 Sincronismo y el Modelo Request-Response
 
 Django utiliza un modelo de ejecución **síncrono**: cada request HTTP ocupa un thread del worker de Gunicorn durante toda su duración. Cuando el worker ejecuta una query a MariaDB, el thread queda bloqueado esperando la respuesta.
 
@@ -346,7 +413,7 @@ La versión original del sistema usaba FastAPI con `async/await`. La migración 
 
 ---
 
-## 2.8 El Router Raíz de URLs
+## 2.10 El Router Raíz de URLs
 
 `config/urls.py` es el punto de entrada de todas las requests HTTP al backend:
 
@@ -402,7 +469,7 @@ try {
 
 ---
 
-## 2.9 Generación Automática de Schema OpenAPI con drf-spectacular
+## 2.11 Generación Automática de Schema OpenAPI con drf-spectacular
 
 `drf-spectacular` inspecciona todos los ViewSets registrados en el router y genera un schema OpenAPI 3.1 completo, incluyendo:
 - Descripción de cada endpoint
@@ -426,7 +493,7 @@ El schema se sirve en:
 
 ---
 
-## 2.10 Diagrama de Dependencias entre Dominios
+## 2.12 Diagrama de Dependencias entre Dominios
 
 Las dependencias entre dominios son unidireccionales. Ningún dominio upstream depende de uno downstream:
 
@@ -452,6 +519,7 @@ comercial
 
 | Modelo | Campo FK | Dominio origen | Dominio destino |
 |--------|----------|----------------|-----------------|
+| `OrdenFabricacion.responsable` | FK | comercial | auth_erp (User) |
 | `Anticipo.of_id` | FK | comercial | comercial |
 | `PedidoMaterial.of_id` | FK | desarrollo | comercial |
 | `OrdenCompra.pm_id` | FK | desarrollo | desarrollo |

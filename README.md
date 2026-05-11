@@ -1,4 +1,4 @@
-# ERP Industrial - API REST
+# ERP Industrial
 
 Sistema ERP para gestión de procesos industriales diseñado con **Domain-Driven Design (DDD)**. Modela el ciclo de vida completo de una Orden de Fabricación (OF) a través de 7 dominios de negocio interconectados.
 
@@ -8,13 +8,13 @@ El sistema está dividido en **Bounded Contexts** que representan las áreas fun
 
 | Dominio | Prefijo API | Responsabilidad |
 |---------|-------------|-----------------|
-| **Comercial** | `/api/v1/comercial` | Gestión de clientes, emisión de OF y anticipos |
-| **Administracion** | `/api/v1/administracion` | Validación de anticipos y autorización de despachos |
+| **Comercial** | `/api/v1/comercial` | Emisión de OF con responsable asignado y plazo de anticipo configurable; gestión de anticipos |
+| **Administracion** | `/api/v1/administracion` | Validación de anticipos (con comprobante), autorización de despachos (con comprobante de saldo) |
 | **Desarrollo** | `/api/v1/desarrollo` | Planos técnicos y listado de materiales (BOM) |
 | **Compras** | `/api/v1/compras` | Órdenes de compra y gestión de proveedores |
 | **Panol** | `/api/v1/panol` | Inventario, stock y movimientos de materiales |
-| **Produccion** | `/api/v1/produccion` | Lotes de producción y partes diarios |
-| **Logistica** | `/api/v1/logistica` | Despachos, remitos y transporte |
+| **Produccion** | `/api/v1/produccion` | Lotes de producción con workflow de 5 estados y auditoría de transiciones |
+| **Logistica** | `/api/v1/logistica` | Despachos de lotes terminados o en despacho |
 
 ### Flujo de negocio
 
@@ -24,11 +24,14 @@ Comercial → Desarrollo → Compras → Pañol → Producción → Logística
 Administración ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←┘
 ```
 
-## Stack tecnologico (2026)
+El rechazo automático de OFs con anticipo vencido corre cada día a las **19:00 ART** vía Celery Beat.
+
+## Stack tecnológico (2026)
 
 - **Backend:** Python 3.12, Django 5.x, Django REST Framework (DRF)
-- **Frontend:** React 18, Vite 6
-- **Base de datos:** PostgreSQL 16 (psycopg v3)
+- **Frontend:** React 18, Vite 6 (dev) / Nginx (prod)
+- **Base de datos:** MariaDB 10.11
+- **Cola de tareas:** Celery 5 + Redis 7 (broker y result backend)
 - **Testing:** Pytest, Factory-Boy (Backend) + Playwright (E2E)
 - **Infraestructura:** Docker, Docker Compose
 
@@ -37,91 +40,104 @@ Administración ←←←←←←←←←←←←←←←←←←←←←�
 ```
 ERP-LG/
 ├── backend/
-│   ├── config/                  # Proyecto principal Django (settings, urls)
-│   ├── comercial/               # App Django
-│   ├── administracion/          # App Django
-│   ├── desarrollo/              # App Django
-│   ├── compras/                 # App Django
-│   ├── panol/                   # App Django
-│   ├── produccion/              # App Django
-│   ├── logistica/               # App Django
+│   ├── config/                  # Proyecto Django (settings, urls, celery.py)
+│   ├── comercial/               # OF, anticipos, tarea Celery de rechazo
+│   ├── administracion/          # Validación anticipos y despachos
+│   ├── desarrollo/              # Planos y BOM
+│   ├── compras/                 # OC y proveedores
+│   ├── panol/                   # Stock y movimientos
+│   ├── produccion/              # Lotes y workflow de estados
+│   ├── logistica/               # Despachos
+│   ├── auth_erp/                # Autenticación JWT + 2FA
 │   ├── requirements.txt
-│   ├── docker-compose.yml
+│   ├── Dockerfile               # Imagen producción (Gunicorn)
 │   └── Dockerfile.dev
 ├── frontend/
 │   ├── src/
+│   │   └── components/          # Paneles por dominio + primitives.jsx
 │   ├── package.json
 │   ├── vite.config.js
-│   ├── docker-compose.yml
+│   ├── Dockerfile               # Imagen producción (Nginx)
 │   └── Dockerfile.dev
-├── database/
-│   └── docker-compose.yml
+├── docs/
+│   └── manual-referencia/       # Documentación técnica (caps. 01–05)
+├── docker-compose.prod.yml      # Compose de producción (6 servicios)
+└── erp.sh                       # Script helper (dev)
 ```
 
 ## Requisitos previos
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Docker](https://docs.docker.com/get-docker/) y [Docker Compose](https://docs.docker.com/compose/install/)
 - Node.js (solo para tests E2E vía Playwright)
 
-No se requiere Python ni bases de datos instaladas localmente para levantar la app.
+No se requiere Python ni MariaDB instalados localmente.
 
-## Levantar el proyecto
+## Levantar en producción
 
-El proyecto se levanta con el script unificado `erp.sh` en la raíz del proyecto.
-
-**Levantar todo:**
 ```bash
-./erp.sh up
+sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 ```
 
-**Chequear estado de los contenedores:**
-```bash
-./erp.sh status
-```
+| Servicio | URL / Puerto |
+|----------|-------------|
+| Frontend (Nginx) | http://localhost:3000 |
+| Backend API | http://localhost:8000 |
+| Swagger UI | http://localhost:8000/api/schema/swagger-ui/ |
+| MariaDB | puerto 3306 (interno) |
+| Redis | puerto 6379 (interno) |
 
-**Bajar los servicios:**
+Los servicios `celery-worker` y `celery-beat` se levantan automáticamente junto al resto.
+
+## Levantar en desarrollo
+
 ```bash
-./erp.sh down
+./erp.sh up       # levanta backend + frontend + DB
+./erp.sh status   # estado de contenedores
+./erp.sh down     # bajar servicios
 ```
 
 | Servicio | URL |
 |----------|-----|
 | Backend API | http://localhost:8000 |
-| Docs (Swagger) | http://localhost:8000/api/schema/swagger-ui/ |
-| Frontend | http://localhost:5173 |
-| PostgreSQL | localhost:5432 |
+| Frontend (Vite) | http://localhost:5173 |
 
 ## Tests
 
-El backend cuenta con tests unitarios y de integración usando `pytest`.
-
 ```bash
-# Correr tests del backend
-cd backend
-docker-compose run --rm web pytest -v
-```
+# Backend
+docker compose run --rm backend pytest -v
 
-El frontend y la integración del sistema cuentan con tests e2e usando `Playwright`.
-
-```bash
-# Instalar dependencias e2e y correr tests
+# E2E
 pnpm install
 npx playwright test
 ```
 
 ## Seguridad
 
-- Autenticación implementada (Login, 2FA, JWT).
-- Autorización por roles (RBAC) basada en dominios.
-- Aplicación dedicada `auth_erp`.
+- Autenticación con Login, 2FA y JWT (app `auth_erp`).
+- Autorización por roles (RBAC) por dominio.
+- Archivos de comprobantes requieren header `Authorization` para descargarse.
 
 ## Actualizaciones Recientes (Mayo 2026)
 
-- **Seguridad**: Implementación completa de Autenticación, incluyendo Login, 2FA y JWT mediante la nueva app `auth_erp`.
-- **Infraestructura**: Se añadieron archivos de configuración para el entorno de producción (`Dockerfile` para frontend y backend, `docker-compose.prod.yml` y configuración de `nginx.conf`).
-- **Backend**: Actualización y refactorización de los módulos principales (Comercial, Compras, Desarrollo, Pañol, Producción).
-- **Frontend**: Integración de autenticación en la interfaz, nuevos paneles y mock de datos, y actualización general de componentes UI usando TailwindCSS (safelist y primitives).
+- **Comercial**: OF registra `responsable` (usuario que la crea) y `plazo_anticipo_dias` configurable por OF.
+- **Administración**: Anticipos separados en Pendientes / Validados / Rechazados. Despachos incluyen upload de comprobante de saldo. Nueva sección "Obras finalizadas" con ambos comprobantes por OF.
+- **Logística**: Dropdown "Nuevo despacho" incluye lotes en estado `terminado` y `en_despacho`, excluyendo los que ya tienen despacho activo.
+- **Celery Beat**: Tarea `rechazar_ofs_vencidas` corre diariamente a las 19:00 ART; rechaza automáticamente OFs y anticipos con plazo vencido.
+- **Infraestructura**: Servicios `redis`, `celery-worker` y `celery-beat` añadidos al compose de producción.
+- **Seguridad** *(sesión anterior)*: Login, 2FA y JWT via `auth_erp`. Configuración de producción con Nginx + Gunicorn + `docker-compose.prod.yml`.
+
+## Documentación técnica
+
+Ver `docs/manual-referencia/` para referencia completa:
+
+| Capítulo | Contenido |
+|----------|-----------|
+| `01-introduccion.md` | Visión general, stack, glosario |
+| `02-arquitectura.md` | Django apps, Celery, decisiones de diseño |
+| `03-modelo-datos.md` | Modelos, relaciones, migraciones, deuda técnica |
+| `04-api-referencia.md` | Contratos de endpoints por dominio |
+| `05-frontend.md` | Componentes, routing, primitivas, patrones de UI |
 
 ## Licencia
 

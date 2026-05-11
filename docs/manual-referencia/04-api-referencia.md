@@ -146,11 +146,14 @@ Lista todas las OFs con su anticipo asociado.
       "id": 111,
       "cliente": "Franco SAS",
       "descripcion": "Eje tractor 45mm",
-      "plazo_entrega": "2026-06-01",
+      "plazo_entrega": "30 dias",
       "monto_anticipo": 50000.00,
       "moneda_anticipo": "ARS",
       "anticipo_descripcion": "Transferencia bancaria",
       "estado": "aprobada",
+      "responsable": 3,
+      "responsable_nombre": "González Escobar",
+      "plazo_anticipo_dias": 7,
       "created_at": "2026-05-10T14:32:00Z",
       "updated_at": "2026-05-10T15:00:00Z",
       "anticipo": {
@@ -160,6 +163,7 @@ Lista todas las OFs con su anticipo asociado.
         "estado": "validado",
         "pagado": true,
         "observacion": "Pago confirmado",
+        "factura_archivo": { "nombre": "comprobante.pdf", "tipo": "application/pdf", "tamanio_bytes": 204800 },
         "created_at": "2026-05-10T14:32:00Z"
       }
     }
@@ -169,19 +173,24 @@ Lista todas las OFs con su anticipo asociado.
 
 Estados posibles de `OrdenFabricacion.estado`: `pendiente_anticipo` → `aprobada` / `rechazada_anticipo`.
 
+- `responsable`: ID del usuario Django que creó la OF (asignado automáticamente desde `request.user`).
+- `responsable_nombre`: nombre completo o username del responsable (campo calculado, read-only).
+- `plazo_anticipo_dias`: días desde `created_at` hasta que Celery Beat rechaza la OF si el anticipo no fue validado.
+
 ### POST `/comercial/ordenes-fabricacion`
 
-Crea una OF y genera automáticamente el anticipo asociado en estado `pendiente`.
+Crea una OF y genera automáticamente el anticipo asociado en estado `pendiente`. El campo `responsable` se asigna automáticamente desde `request.user` — no se envía en el request.
 
 ```json
 // Request
 {
   "cliente": "Franco SAS",
   "descripcion": "Eje tractor 45mm",
-  "plazo_entrega": "2026-06-01",
+  "plazo_entrega": "30 dias",
   "monto_anticipo": 50000.00,
   "moneda_anticipo": "ARS",
-  "anticipo_descripcion": "Transferencia bancaria"
+  "anticipo_descripcion": "Transferencia bancaria",
+  "plazo_anticipo_dias": 7
 }
 
 // Response 200
@@ -271,18 +280,28 @@ Si `pagado=false`, el anticipo queda en estado `rechazado` y la OF pasa a `recha
 
 ### PUT `/administracion/despachos/{id}/aprobar`
 
-Autoriza o rechaza un despacho que está en estado `esperando_autorizacion`.
+Autoriza o rechaza un despacho que está en estado `esperando_autorizacion`. Admite `multipart/form-data` para adjuntar el comprobante de saldo restante.
 
-```json
-// Request
-{ "aprobado": true, "observacion": "Documentación verificada" }
+```
+// Request (multipart/form-data)
+aprobado=true
+observacion=Documentación verificada
+comprobante_saldo=<archivo PDF/imagen opcional>
 
 // Response 200
 {
   "message": "Despacho 12 autorizado",
-  "data": { "id": 12, "estado": "autorizado", "observacion_admin": "Documentación verificada", ... }
+  "data": {
+    "id": 12,
+    "estado": "autorizado",
+    "observacion_admin": "Documentación verificada",
+    "comprobante_saldo": "/media/comprobantes_saldo/comprobante.pdf",
+    ...
+  }
 }
 ```
+
+Si `aprobado=false`, el despacho queda en `rechazado`. El lote vuelve a estar disponible para un nuevo despacho (Logística puede crear uno nuevo).
 
 ---
 
@@ -747,16 +766,21 @@ Lista todos los despachos.
     {
       "id": 12,
       "lote_id": 56,
+      "of_id": 111,
       "destino": "Av. Industrial 1234, Córdoba",
       "transportista": "Transporte Norte SA",
-      "estado": "pendiente",
-      "observacion_admin": "",
+      "estado": "ejecutado",
+      "observacion_admin": "Documentación verificada",
+      "comprobante_saldo": "/media/comprobantes_saldo/comprobante.pdf",
       "created_at": "2026-05-14T11:00:00Z",
-      "updated_at": "2026-05-14T11:00:00Z"
+      "updated_at": "2026-05-14T12:30:00Z"
     }
   ]
 }
 ```
+
+- `of_id`: campo calculado por `SerializerMethodField`, navega la cadena `Despacho → Lote → OrdenFabricacion`. Permite al frontend de Administración cruzar despachos ejecutados con sus OFs en la vista "Obras finalizadas".
+- `comprobante_saldo`: URL relativa al archivo adjuntado en la autorización. `null` si no fue adjuntado.
 
 **Ciclo de vida de `Despacho.estado`:**
 
@@ -768,6 +792,8 @@ pendiente → esperando_autorizacion → autorizado → ejecutado
 ### POST `/logistica/despachos`
 
 Crea un despacho para un lote. El lote debe estar en estado `terminado` o `en_despacho`. Al crear el despacho, el lote pasa automáticamente a `en_despacho`.
+
+**Nota:** Un lote puede estar en `en_despacho` porque Producción lo avanzó hasta ese estado (último step del workflow de Producción). El frontend filtra los lotes disponibles para "Nuevo despacho" incluyendo ambos estados (`terminado` y `en_despacho`), pero excluyendo los que ya tienen un despacho activo (estado distinto de `rechazado`). Un despacho `rechazado` libera al lote para un nuevo intento.
 
 ```json
 // Request
@@ -815,7 +841,23 @@ Ejecuta el despacho. Solo posible si está en estado `autorizado` (Administraci�
 
 ---
 
-## 4.10 Operaciones con `@transaction.atomic`
+## 4.10 Tareas Asíncronas (Celery Beat)
+
+Las siguientes operaciones se ejecutan fuera del ciclo HTTP, scheduladas por Celery Beat:
+
+| Tarea | Schedule | Descripción |
+|-------|----------|-------------|
+| `comercial.tasks.rechazar_ofs_vencidas` | Diario a las 19:00 ART | Rechaza OFs con anticipo pendiente cuyo `plazo_anticipo_dias` ha vencido. Actualiza `OrdenFabricacion.estado = 'rechazada_anticipo'` y `Anticipo.estado = 'rechazado'` con observación automática. |
+
+**No hay endpoint HTTP para disparar esta tarea manualmente en producción.** El schedule se define en `CELERY_BEAT_SCHEDULE` dentro de `config/settings.py`. Si se necesita ejecución manual en desarrollo:
+
+```bash
+docker exec -it erp-lg-celery-worker-1 celery -A config call comercial.tasks.rechazar_ofs_vencidas
+```
+
+---
+
+## 4.11 Operaciones con `@transaction.atomic`
 
 Las siguientes operaciones afectan múltiples tablas. Si cualquier paso falla, se hace rollback completo:
 
@@ -829,7 +871,7 @@ Las siguientes operaciones afectan múltiples tablas. Si cualquier paso falla, s
 
 ---
 
-## 4.11 Endpoints de Descarga de Archivos (PDF/binarios)
+## 4.12 Endpoints de Descarga de Archivos (PDF/binarios)
 
 Los endpoints que retornan binarios requieren autenticación JWT en el header. **No usar `window.open(url)` directamente** — el navegador no incluye el header `Authorization` en navegaciones directas. El patrón correcto:
 
@@ -855,14 +897,15 @@ Endpoints que usan este patrón:
 
 ---
 
-## 4.12 Flujo Integrado End-to-End (E2E)
+## 4.13 Flujo Integrado End-to-End (E2E)
 
 El siguiente escenario representa el happy path completo de una OF a través de los 7 dominios:
 
-| Paso | Dominio | Endpoint | Resultado |
-|------|---------|----------|-----------|
-| 1 | Comercial | `POST /comercial/ordenes-fabricacion` | OF #111 en `pendiente_anticipo`, Anticipo #88 en `pendiente` |
-| 2 | Administración | `PUT /administracion/anticipos/88/validar` `pagado=true` | Anticipo en `validado`, OF en `aprobada` |
+| Paso | Dominio | Endpoint / Actor | Resultado |
+|------|---------|-----------------|-----------|
+| 1 | Comercial | `POST /comercial/ordenes-fabricacion` (con `plazo_anticipo_dias`) | OF #111 en `pendiente_anticipo`, Anticipo #88 en `pendiente`, `responsable` = usuario autenticado |
+| 2a | Administración | `PUT /administracion/anticipos/88/validar` `pagado=true` | Anticipo en `validado`, OF en `aprobada` |
+| 2b | Sistema (Celery Beat) | Tarea `rechazar_ofs_vencidas` a las 19:00 ART | Si `plazo_anticipo_dias` vence: Anticipo en `rechazado`, OF en `rechazada_anticipo` |
 | 3 | Desarrollo | `POST /desarrollo/pedidos-material` | PM #40 + OC #1 creados |
 | 4 | Desarrollo | `POST /desarrollo/planos` | Plano #5 subido |
 | 5 | Compras | `POST /compras/facturas` | FC #7 en `registrada`, PM #40 en `facturado` |
@@ -872,5 +915,6 @@ El siguiente escenario representa el happy path completo de una OF a través de 
 | 9 | Producción | `POST /produccion/lotes/56/avanzar` ×4 | Lote avanza: `produccion` → `final_produccion` → `terminado` → `en_despacho` |
 | 10 | Logística | `POST /logistica/despachos` | Despacho #12 en `pendiente`, Lote #56 en `en_despacho` |
 | 11 | Logística | `POST /logistica/despachos/12/solicitar-autorizacion` | Despacho en `esperando_autorizacion` |
-| 12 | Administración | `PUT /administracion/despachos/12/aprobar` `aprobado=true` | Despacho en `autorizado` |
+| 12 | Administración | `PUT /administracion/despachos/12/aprobar` (multipart + `comprobante_saldo`) | Despacho en `autorizado`, comprobante guardado en `/media/comprobantes_saldo/` |
 | 13 | Logística | `POST /logistica/despachos/12/ejecutar` | Despacho en `ejecutado` |
+| 14 | Administración | Vista "Obras finalizadas" | Muestra comprobante anticipo (`factura_archivo`) + comprobante saldo (`comprobante_saldo`) de la OF |

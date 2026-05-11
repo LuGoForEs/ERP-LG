@@ -40,8 +40,8 @@ erDiagram
 
 | Dominio | Modelo | Función Principal | Relaciones Clave |
 |---------|--------|-------------------|------------------|
-| **Comercial** | `OrdenFabricacion` | Raíz del sistema. Representa el pedido del cliente. | FK de múltiples dominios. |
-| | `Anticipo` | Registro de pagos adelantados para una OF. | `orden_fabricacion` (FK) |
+| **Comercial** | `OrdenFabricacion` | Raíz del sistema. Representa el pedido del cliente. Campos: `responsable` (FK → User, asignado automáticamente al crear), `plazo_anticipo_dias` (int, default 7). `responsable_nombre` expuesto via `SerializerMethodField`. | FK de múltiples dominios. |
+| | `Anticipo` | Registro de pagos adelantados para una OF. Rechazado automáticamente por Celery Beat si `plazo_anticipo_dias` vence. | `orden_fabricacion` (FK) |
 | **Compras** | `Proveedor` | Catálogo de proveedores. | |
 | | `Insumo` | Catálogo maestro de materiales. | |
 | | `FacturaCompra` | Registro de comprobantes de pago. | `proveedor` (FK), `orden_compra` (FK) |
@@ -55,7 +55,7 @@ erDiagram
 | | `Movimiento` | Transacción de entrada/salida de pañol. | `ingreso` (FK), `lote` (FK) |
 | | `MovimientoItem` | Detalle de insumos movidos. | `movimiento` (FK), `insumo` (FK) |
 | **Producción**| `Lote` | Unidad de fabricación en el taller. Estado: `pre_produccion`→`produccion`→`final_produccion`→`terminado`→`en_despacho`. `observaciones` JSONField registra cada transición. | `of_id` (FK), `planos` (M2M), `movimientos` (M2M) |
-| **Logística** | `Despacho` | Registro de entrega de Lotes/OF al cliente. | `of` (FK) |
+| **Logística** | `Despacho` | Registro de entrega de Lotes/OF al cliente. Campo `comprobante_saldo` (FileField, `upload_to='comprobantes_saldo/'`) adjuntado por Administración al autorizar. El serializer expone `of_id` via `SerializerMethodField` (desde `lote_id.of_id_id`). | `lote_id` (FK) |
 
 ---
 
@@ -95,7 +95,26 @@ Para no romper contratos existentes con el frontend y otras partes del código t
 El uso de `JSONField` para relacionar entidades (ej. `Lote.planos_asociados` conteniendo `[1, 2, 3]`) es un antipatrón relacional porque impide usar restricciones de integridad referencial (FK constraints) y dificulta consultas inversas. 
 * **Caso Lote:** Se identificó como un antipatrón. Las relaciones N:M verdaderas deben gestionarse con `models.ManyToManyField` para que la base de datos (MariaDB) maneje la integridad a nivel de motor.
 
-### 4. `OneToOneField` vs `ForeignKey`
+### 4. `SerializerMethodField` para Campos Cross-Domain
+
+`DespachoSerializer` expone `of_id` como un campo calculado en lugar de una columna real:
+
+```python
+class DespachoSerializer(serializers.ModelSerializer):
+    of_id = serializers.SerializerMethodField()
+
+    def get_of_id(self, obj):
+        try:
+            return obj.lote_id.of_id_id
+        except Exception:
+            return None
+```
+
+**Por qué:** El frontend de Administración (panel "Obras finalizadas") necesita cruzar despachos con órdenes. La cadena de FK es `Despacho → Lote → OrdenFabricacion`. Atravesar dos FKs en el serializer es correcto porque el serializer es la capa de presentación; no agrega lógica de negocio. El `try/except` protege contra lotes huérfanos.
+
+**Deuda técnica:** `obj.lote_id.of_id_id` genera una query N+1 si se serializa una lista de despachos sin `select_related('lote_id')`. El queryset en `list_despachos` debería agregar `.select_related('lote_id')` para optimizar.
+
+### 5. `OneToOneField` vs `ForeignKey`
 Se aplicó una decisión estricta de cardinalidad en el modelo `Stock`.
 * **Caso:** `Stock` y `Insumo`. Se utilizó `models.OneToOneField` en `Stock` apuntando a `Insumo` porque, por regla de negocio, solo puede haber un único registro de consolidado de inventario por cada Insumo físico. Usar `ForeignKey` permitiría (erróneamente) múltiples registros de stock para un mismo tornillo, causando inconsistencias de inventario.
 
@@ -105,4 +124,6 @@ Se aplicó una decisión estricta de cardinalidad en el modelo `Stock`.
 
 * **`0001_initial.py`**: Representa la estructura monolítica fundacional, creada rápidamente para validación de producto. Contenía strings redundantes y JSONFields para evitar migraciones complejas tempranas.
 * **`0002_*` (Normalización)**: Un conjunto de migraciones aplicadas en todos los dominios (`comercial/0002`, `compras/0002`, `panol/0002`, etc.) que eliminaron campos `_nombre`, agregaron Foreign Keys relacionales hacia los catálogos maestros (`Insumo`, `Proveedor`), y transformaron el modelo a 3NF.
-* **`produccion/0003_lote_observaciones`**: Agrega el campo `observaciones = JSONField(default=list)` al modelo `Lote` para registrar el historial de transiciones de estado con texto de auditoría. La migración `0002` de producción fue fakeada (`--fake`) por desincronía entre la DB y el estado de migraciones; `0003` registra solo el `AddField` real.
+* **`produccion/0003_lote_observaciones`**: Agrega el campo `observaciones = JSONField(default=list)` al modelo `Lote` para registrar el historial de transiciones de estado con texto de auditoría. La migración `0002` de producción fue fakeada (`--fake`) por desincronía entre la DB y el estado de migraciones; `0003` registra solo el `AddField` real. La dependencia se corrigió para apuntar a `0001_initial` (el `0002` fakeado no existe en disco).
+* **`comercial/0003_add_responsable_plazo_anticipo`**: Agrega `responsable = ForeignKey(User, null=True, SET_NULL)` y `plazo_anticipo_dias = IntegerField(default=7)` a `OrdenFabricacion`.
+* **`logistica/0002_add_comprobante_saldo`**: Agrega `comprobante_saldo = FileField(upload_to='comprobantes_saldo/', null=True)` a `Despacho`. El `RemoveField` del campo `of_id` (que existía en `0001_initial` pero no en el modelo) fue eliminado de la migración porque la columna ya no existía en la DB de producción.

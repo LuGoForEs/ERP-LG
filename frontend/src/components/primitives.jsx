@@ -115,22 +115,27 @@ export const Textarea = React.forwardRef(function Textarea({ className = '', err
 // ─── SELECT ───────────────────────────────────────────────────────────────────
 export function Select({ value, onChange, options, className = '', placeholder, ...props }) {
   return (
-    <select
-      value={value}
-      onChange={onChange}
-      {...props}
-      className={cx(
-        'h-9 w-full rounded-md bg-zinc-950/50 border border-zinc-800 pl-3 pr-8 text-sm text-zinc-100',
-        'hover:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500',
-        'cursor-pointer transition-colors',
-        className,
-      )}
-    >
-      {placeholder && <option value="" disabled>{placeholder}</option>}
-      {options.map(o => (
-        <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>
-      ))}
-    </select>
+    <div className={cx('relative', className)}>
+      <select
+        value={value}
+        onChange={onChange}
+        {...props}
+        className={cx(
+          'appearance-none h-9 w-full rounded-md bg-zinc-950/50 border border-zinc-800 pl-3 pr-8 text-sm text-zinc-100',
+          'hover:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500',
+          'cursor-pointer transition-colors',
+        )}
+        style={{ backgroundImage: 'none' }}
+      >
+        {placeholder && <option value="" disabled>{placeholder}</option>}
+        {options.map(o => (
+          <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>
+        ))}
+      </select>
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-500">
+        <Icon name="chevron-down" size={14} />
+      </div>
+    </div>
   );
 }
 

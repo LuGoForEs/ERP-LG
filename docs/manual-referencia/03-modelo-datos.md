@@ -56,6 +56,8 @@ erDiagram
 | | `MovimientoItem` | Detalle de insumos movidos. | `movimiento` (FK), `insumo` (FK) |
 | **Producción**| `Lote` | Unidad de fabricación en el taller. Estado: `pre_produccion`→`produccion`→`final_produccion`→`terminado`→`en_despacho`. `observaciones` JSONField registra cada transición. | `of_id` (FK), `planos` (M2M), `movimientos` (M2M) |
 | **Logística** | `Despacho` | Registro de entrega de Lotes/OF al cliente. Campo `comprobante_saldo` (FileField, `upload_to='comprobantes_saldo/'`) adjuntado por Administración al autorizar. El serializer expone `of_id` via `SerializerMethodField` (desde `lote_id.of_id_id`). | `lote_id` (FK) |
+| **Auth** | `UserProfile` | Extiende `User` (OneToOne). Campos: `dni`, `expiration_date` (DateField), `activation_token` (UUIDField, db_index), `activation_token_created_at` (DateTimeField), `totp_secret` (para 2FA). | `user` (O2O → User) |
+| | `UserRole` | Asignación de rol a un usuario con nivel de permiso. Tabla `user_roles`. `unique_together = ('user', 'role')`. Choices de `role`: los 7 paneles + `gerencia`. Choices de `permission`: `rw` / `r`. | `user` (FK → User) |
 
 ---
 

@@ -177,7 +177,88 @@ La función `request()` de `api.js` detecta `isFormData=true` y omite el header 
 
 ---
 
-## 5.10 LetterGlitch: Efecto Canvas 2D
+## 5.10 Sistema RBAC en el Frontend
+
+### PermissionsContext (`src/contexts/PermissionsContext.jsx`)
+
+El contexto calcula los paneles accesibles y los permisos de escritura a partir del objeto `user` devuelto por `GET /auth/me/`:
+
+```jsx
+const { isReadonly } = usePermissions();
+const readonly = isReadonly('comercial');
+```
+
+**Lógica de expansión de roles:**
+
+| Rol recibido en JWT | Paneles disponibles |
+|---------------------|---------------------|
+| `gerencia` | Los 7 paneles operativos (con el permiso del rol) |
+| `comercial`, `panol`, etc. | Solo el panel específico |
+| `is_superuser: true` | Los 8 paneles (7 operativos + `usuarios`) todos con `rw` |
+
+Los roles individuales tienen **prioridad** sobre la expansión de `gerencia`: si un usuario tiene `gerencia r` + `comercial rw`, Comercial queda con `rw` y el resto con `r`.
+
+### Modo lectura en los paneles
+
+Patrón uniforme aplicado en los 7 paneles operativos:
+
+```jsx
+import { usePermissions } from '../contexts/PermissionsContext';
+
+const { isReadonly } = usePermissions();
+const readonly = isReadonly('comercial'); // key del panel
+
+// Los botones de escritura no se renderizan en modo lectura:
+{!readonly && <Button onClick={...}>Nueva OF</Button>}
+```
+
+Los botones **no se deshabilitan** (no se usa `disabled`): directamente no se montan en el DOM. Esto evita que usuarios de solo lectura descubran funcionalidades que no deben usar.
+
+| Panel | Botones ocultados en modo `r` |
+|-------|-------------------------------|
+| `ComercialPanel` | "Nueva OF" |
+| `AdminPanel` | "Aprobar/Rechazar anticipo", "Autorizar/Rechazar despacho" |
+| `DesarrolloPanel` | "Crear PM", "Enviar a Producción" |
+| `ComprasPanel` | "Procesar PM", "Confirmar OC" |
+| `PanolPanel` | "Registrar ingreso", "Despachar a Producción", "Crear artículo" |
+| `ProduccionPanel` | "Registrar inicio de lote", "Avanzar estado" |
+| `LogisticaPanel` | "Crear despacho", "Solicitar autorización", "Ejecutar despacho" |
+
+### Sidebar filtrado
+
+```jsx
+// primitives.jsx — Sidebar
+const visibleModules = allowedPanels
+  ? V2_MODULES.filter(m => allowedPanels.has(m.id))
+  : V2_MODULES; // fallback: muestra todos (no debería ocurrir post-login)
+```
+
+El hook `useGlobalShortcuts` también recibe `safeSetActive` en lugar de `setActive` directamente, para que los shortcuts de teclado (`G+C`, `G+U`, etc.) no naveguen a paneles no accesibles.
+
+### ActivationPage (`src/components/ActivationPage.jsx`)
+
+Se renderiza **fuera del auth gate** cuando la URL contiene `?activate=<token>`. El flujo es:
+
+1. `App.jsx` detecta `new URLSearchParams(window.location.search).get('activate')`.
+2. Si el token existe, `<ActivationPage token={...} />` se monta en lugar del layout normal.
+3. El usuario completa los campos "Contraseña" + "Confirmar contraseña" y envía.
+4. `POST /auth/activate/` con `{ token, password }` activa la cuenta.
+5. On success: mensaje de confirmación + link "Ir al inicio de sesión" (`window.location.href = '/'`).
+
+### UsersPanel (`src/components/UsersPanel.jsx`)
+
+Panel exclusivo para `is_superuser`. Funcionalidades:
+
+- **Tabla de usuarios**: nombre, email, DNI, badges de roles (coloreados por dominio), estado de activación, fecha de expiración.
+- **Crear usuario**: Dialog con campos nombre, apellido, DNI, email, repeater de roles (selección de panel + permiso rw/r), toggle de expiración + selector de fecha. On submit → `POST /auth/users/create/` → email de activación enviado.
+- **Editar usuario**: panel lateral deslizable; edición de roles y expiración; `PUT /auth/users/{id}/`.
+- **Eliminar usuario**: confirmación inline antes de `DELETE /auth/users/{id}/`.
+
+Los badges de rol usan el acento de color de cada panel (`orange` = logística, `blue` = comercial, etc.).
+
+---
+
+## 5.11 LetterGlitch: Efecto Canvas 2D
 
 El componente `LetterGlitch.jsx` es responsable del fondo animado corporativo.
 

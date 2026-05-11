@@ -15,6 +15,7 @@ El sistema está dividido en **Bounded Contexts** que representan las áreas fun
 | **Panol** | `/api/v1/panol` | Inventario, stock y movimientos de materiales |
 | **Produccion** | `/api/v1/produccion` | Lotes de producción con workflow de 5 estados y auditoría de transiciones |
 | **Logistica** | `/api/v1/logistica` | Despachos de lotes terminados o en despacho |
+| **Auth / Usuarios** | `/auth/` | Autenticación JWT + 2FA, RBAC completo, gestión de usuarios y activación por email |
 
 ### Flujo de negocio
 
@@ -54,7 +55,9 @@ ERP-LG/
 │   └── Dockerfile.dev
 ├── frontend/
 │   ├── src/
-│   │   └── components/          # Paneles por dominio + primitives.jsx
+│   │   ├── components/          # Paneles por dominio + primitives.jsx + UsersPanel + ActivationPage
+│   │   ├── contexts/            # AuthContext, PermissionsContext (RBAC)
+│   │   └── api.js               # Cliente HTTP centralizado
 │   ├── package.json
 │   ├── vite.config.js
 │   ├── Dockerfile               # Imagen producción (Nginx)
@@ -112,20 +115,39 @@ pnpm install
 npx playwright test
 ```
 
-## Seguridad
+## Seguridad y Control de Acceso (RBAC)
 
-- Autenticación con Login, 2FA y JWT (app `auth_erp`).
-- Autorización por roles (RBAC) por dominio.
+- **Autenticación**: Login con validación Cloudflare Turnstile, 2FA TOTP, JWT (access 15 min + refresh httpOnly 7 días).
+- **RBAC por panel**: modelo `UserRole(user, role, permission)` con permisos `rw` (lectura/escritura) o `r` (solo lectura).
+- **Roles disponibles**: `comercial`, `administracion`, `desarrollo`, `compras`, `panol`, `produccion`, `logistica`, `gerencia` (expande a los 7 paneles operativos).
+- **SuperUser**: accede a los 8 paneles (7 operativos + Usuarios); gestiona altas, modificaciones y bajas de usuarios.
+- **Sidebar filtrado**: cada usuario solo ve los paneles a los que tiene acceso.
+- **Modo lectura**: usuarios con permiso `r` no ven botones de escritura (no se deshabilitan, directamente no se renderizan).
+- **Activación por email**: los usuarios se crean inactivos; reciben un email con token UUID para establecer su contraseña (`/?activate=<token>`). En desarrollo, el email se imprime en los logs del backend.
+- **Expiración de cuenta**: campo `expiration_date` en `UserProfile`; el refresh token devuelve 401 si la cuenta expiró.
 - Archivos de comprobantes requieren header `Authorization` para descargarse.
 
 ## Actualizaciones Recientes (Mayo 2026)
 
+### RBAC — Control de Acceso por Roles (última sesión)
+- **Modelo `UserRole`**: tabla `user_roles` con campos `user`, `role`, `permission` (`rw`/`r`). Unicidad por `(user, role)`. Migración `0002_rbac`.
+- **UserProfile extendido**: campos `dni`, `expiration_date`, `activation_token`, `activation_token_created_at`.
+- **Roles embebidos en JWT**: el payload incluye `roles` e `is_superuser`; el rol `gerencia` se expande a los 7 paneles en el helper `_build_roles_payload()`.
+- **Endpoints de gestión de usuarios**: `POST /auth/users/create/`, `GET /auth/users/`, `PUT /auth/users/{id}/`, `DELETE /auth/users/{id}/` (solo SuperUser).
+- **Activación por email**: `POST /auth/activate/` con `token` + `password`; el token expira a las 72h.
+- **Frontend — PermissionsContext**: hook `usePermissions()` expone `canAccess(panel)` e `isReadonly(panel)` sin prop drilling.
+- **Frontend — Sidebar filtrado**: `visibleModules` calculado desde `allowedPanels` (Set); shortcuts de teclado bloqueados para paneles inaccesibles.
+- **Frontend — Modo lectura**: los 7 paneles operativos y el panel de despachos internos ocultan botones de escritura con `{!readonly && <Button>}`.
+- **Frontend — UsersPanel**: panel exclusivo para SuperUser; permite crear, editar roles/expiración y eliminar usuarios.
+- **Frontend — ActivationPage**: ruta `/?activate=<token>` renderiza el formulario de activación fuera del auth gate.
+
+### Sesiones anteriores
 - **Comercial**: OF registra `responsable` (usuario que la crea) y `plazo_anticipo_dias` configurable por OF.
 - **Administración**: Anticipos separados en Pendientes / Validados / Rechazados. Despachos incluyen upload de comprobante de saldo. Nueva sección "Obras finalizadas" con ambos comprobantes por OF.
 - **Logística**: Dropdown "Nuevo despacho" incluye lotes en estado `terminado` y `en_despacho`, excluyendo los que ya tienen despacho activo.
 - **Celery Beat**: Tarea `rechazar_ofs_vencidas` corre diariamente a las 19:00 ART; rechaza automáticamente OFs y anticipos con plazo vencido.
 - **Infraestructura**: Servicios `redis`, `celery-worker` y `celery-beat` añadidos al compose de producción.
-- **Seguridad** *(sesión anterior)*: Login, 2FA y JWT via `auth_erp`. Configuración de producción con Nginx + Gunicorn + `docker-compose.prod.yml`.
+- **Seguridad**: Login, 2FA y JWT via `auth_erp`. Configuración de producción con Nginx + Gunicorn + `docker-compose.prod.yml`.
 
 ## Documentación técnica
 

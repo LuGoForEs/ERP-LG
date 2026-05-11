@@ -183,17 +183,26 @@ MariaDB 10.11 fue elegido por ser un motor relacional robusto con soporte nativo
 
 ---
 
-### Decisión 4: Autenticación Integral (JWT + 2FA)
+### Decisión 4: Autenticación Integral (JWT + 2FA + RBAC)
 
-La autenticación está plenamente implementada mediante una aplicación dedicada (`auth_erp`). Se utiliza SimpleJWT para manejar sesiones sin estado. 
+La autenticación y autorización están implementadas en la aplicación dedicada `auth_erp`. Se utiliza SimpleJWT para manejar sesiones sin estado.
 
-La implementación incluye:
-- Extendemos de `AbstractUser` para el manejo de roles y departamentos.
-- Se implementó 2FA (Doble Factor de Autenticación) de forma nativa para mayor seguridad en el acceso al sistema industrial.
-- El Frontend interactúa con esto a través de `AuthContext`, gestionando el estado global de la sesión.
-- Validaciones en middleware y permisos basados en dominios utilizando DRF `IsAuthenticated`.
+**Autenticación:**
+- Login con validación Cloudflare Turnstile (previene bots y ataques automatizados).
+- 2FA TOTP opcional por usuario (app autenticadora tipo Google Authenticator).
+- JWT: `access_token` (15 min, payload) + `refresh_token` (7 días, cookie `httpOnly`).
+- Activación de cuenta por email: los usuarios se crean inactivos con un token UUID; el email contiene un link `/?activate=<token>` para establecer la contraseña.
+- Expiración de cuenta: `UserProfile.expiration_date` — si la fecha pasó, el endpoint `/auth/refresh/` retorna 401.
 
-Esta decisión garantiza la trazabilidad y la seguridad en operaciones sensibles como despachos o compras.
+**Autorización (RBAC):**
+- Modelo `UserRole(user, role, permission)`: tabla `user_roles`, unicidad `(user, role)`.
+- Roles: `comercial`, `administracion`, `desarrollo`, `compras`, `panol`, `produccion`, `logistica`, `gerencia` (expande a los 7 operativos).
+- Permisos: `rw` (lectura/escritura) o `r` (solo lectura).
+- Los roles se embeben en el payload JWT en `_issue_tokens()`; el token dura 15 min, por lo que los cambios de rol se reflejan en el siguiente refresh.
+- `is_superuser` (flag nativo de Django) = acceso a los 8 paneles con escritura total.
+- El frontend usa `PermissionsContext` para filtrar el sidebar y ocultar botones de escritura sin prop drilling.
+
+Esta decisión garantiza la trazabilidad y la seguridad en operaciones sensibles como despachos o compras, al tiempo que permite configurar visibilidad y escritura por panel de forma granular.
 
 ---
 
@@ -218,6 +227,11 @@ Esta decisión garantiza la trazabilidad y la seguridad en operaciones sensibles
 | **Timeline** | Reconstrucción cronológica de todos los eventos de una OF, cruzando los 7 dominios. Endpoint: `GET /api/v1/comercial/ordenes-fabricacion/{id}/timeline/`. |
 | **Bounded Context** | Concepto de Domain-Driven Design. Cada dominio del ERP es un Bounded Context: tiene su propio vocabulario, sus propios modelos y sus propias reglas de negocio. En Django, cada Bounded Context es una app. |
 | **AllowAny** | Clase de permisos de DRF. Antes utilizada de forma global, ahora ha sido reemplazada por `IsAuthenticated` gracias a la integración de JWT. |
+| **UserRole** | Modelo RBAC. Relaciona un `User` con un `role` (panel) y un `permission` (`rw`/`r`). Tabla `user_roles`, unicidad `(user, role)`. El rol `gerencia` es especial: el backend lo expande a los 7 paneles operativos al generar el JWT. |
+| **RBAC** | Role-Based Access Control. Modelo de autorización donde los permisos se asignan a roles, y los roles a usuarios. En ERP-LG, cada rol corresponde a un panel del sistema. |
+| **PermissionsContext** | Contexto React (`src/contexts/PermissionsContext.jsx`) que expone los hooks `canAccess(panel)` e `isReadonly(panel)` para que los paneles filtren su UI según el rol del usuario logueado. |
+| **Activación por email** | Flujo de alta de usuarios: el SuperUser crea el usuario vía API → el sistema envía un email con URL `/?activate=<UUID>` → el usuario establece su contraseña → cuenta activa. El token UUID expira a 72h. |
+| **SuperUser** | Usuario con `is_superuser=True` (flag nativo de Django). Tiene acceso a los 8 paneles (7 operativos + Usuarios) con escritura total, sin necesidad de entradas en `user_roles`. |
 
 ---
 

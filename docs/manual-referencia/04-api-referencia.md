@@ -94,18 +94,107 @@ Invalida la cookie de refresh del servidor.
 
 ### GET `/auth/me/`
 
-Retorna datos del usuario autenticado.
+Retorna datos del usuario autenticado, incluyendo sus roles RBAC.
 
 ```json
 // Response 200
 {
   "id": 1,
-  "username": "admin",
-  "email": "admin@ejemplo.com",
+  "username": "admin@sibotec.com.ar",
+  "email": "admin@sibotec.com.ar",
   "first_name": "Admin",
   "last_name": "Sistema",
-  "has_2fa": false
+  "has_2fa": false,
+  "is_superuser": true,
+  "roles": [
+    { "role": "comercial", "perm": "rw" },
+    { "role": "panol", "perm": "r" }
+  ]
 }
+```
+
+El array `roles` contiene los permisos efectivos ya expandidos (el rol `gerencia` se expande a los 7 paneles en el backend). El frontend usa este campo para construir el `PermissionsContext`.
+
+### POST `/auth/activate/`
+
+Activa una cuenta nueva. El token se recibe por email y se pasa como query param `?activate=<token>` en la URL del frontend.
+
+```json
+// Request
+{ "token": "550e8400-e29b-41d4-a716-446655440000", "password": "NuevaContraseña123!" }
+
+// Response 200
+{ "message": "Cuenta activada correctamente" }
+
+// Response 400
+{ "detail": "Token inválido o expirado" }
+```
+
+El token expira a las **72 horas** de su creación. Una vez activado, el token se limpia y la cuenta queda `is_active=True`.
+
+### GET `/auth/users/` *(solo SuperUser)*
+
+Lista todos los usuarios del sistema con sus roles y estado.
+
+```json
+// Response 200
+[
+  {
+    "id": 2,
+    "email": "gerencia@sibotec.com.ar",
+    "first_name": "Gerencia",
+    "last_name": "Demo",
+    "dni": "12345678",
+    "is_active": true,
+    "expiration_date": null,
+    "roles": [{ "role": "gerencia", "permission": "rw" }]
+  }
+]
+```
+
+### POST `/auth/users/create/` *(solo SuperUser)*
+
+Crea un usuario inactivo y envía el email de activación.
+
+```json
+// Request
+{
+  "first_name": "Juan",
+  "last_name": "Pérez",
+  "dni": "30123456",
+  "email": "juan.perez@empresa.com",
+  "roles": [{ "role": "comercial", "permission": "rw" }, { "role": "panol", "permission": "r" }],
+  "has_expiration": true,
+  "expiration_date": "2026-12-31"
+}
+
+// Response 201
+{ "id": 5, "message": "Usuario creado. Email de activación enviado." }
+```
+
+En desarrollo (`EMAIL_BACKEND=console`), el link de activación se imprime en los logs del contenedor backend.
+
+### PUT `/auth/users/{id}/` *(solo SuperUser)*
+
+Edita los roles y/o la fecha de expiración de un usuario existente.
+
+```json
+// Request (parcial — solo los campos a modificar)
+{
+  "roles": [{ "role": "produccion", "permission": "rw" }],
+  "expiration_date": "2027-06-30"
+}
+
+// Response 200
+{ "message": "Usuario actualizado" }
+```
+
+### DELETE `/auth/users/{id}/` *(solo SuperUser)*
+
+Elimina permanentemente un usuario y todos sus roles asociados.
+
+```json
+// Response 204 No Content
 ```
 
 ### GET `/auth/2fa/setup/`

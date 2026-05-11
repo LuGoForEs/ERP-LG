@@ -46,7 +46,7 @@ function RolesRepeater({ roles, onChange }) {
               >
                 {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>)}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-500">
+              <div className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-zinc-500">
                 <Icon name="chevron-down" size={13} />
               </div>
             </div>
@@ -59,7 +59,7 @@ function RolesRepeater({ roles, onChange }) {
               >
                 {PERM_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>)}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-500">
+              <div className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-zinc-500">
                 <Icon name="chevron-down" size={13} />
               </div>
             </div>

@@ -132,7 +132,7 @@ export function Select({ value, onChange, options, className = '', placeholder, 
           <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>
         ))}
       </select>
-      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-500">
+      <div className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-zinc-500">
         <Icon name="chevron-down" size={14} />
       </div>
     </div>

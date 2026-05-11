@@ -17,6 +17,7 @@ export default function ComprasPanel() {
   const [search, setSearch] = React.useState('');
   const [selectedOC, setSelectedOC] = React.useState(null);
   const [pdfFile, setPdfFile] = React.useState(null);
+  const [pdfLoadingId, setPdfLoadingId] = React.useState(null);
   const searchRef = React.useRef(null);
   useSearchShortcut(searchRef, () => setSearch(''));
   const toast = useToast();
@@ -159,11 +160,29 @@ export default function ComprasPanel() {
           <div>
             {oc.tiene_pdf ? (
               <button
-                onClick={() => window.open(`/api/v1/compras/facturas/${oc.id}/pdf`, '_blank')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                disabled={pdfLoadingId === oc.id}
+                onClick={async () => {
+                  setPdfLoadingId(oc.id);
+                  try {
+                    const blob = await api.compras.downloadFacturaPdf(oc.id);
+                    const url = URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                    setTimeout(() => URL.revokeObjectURL(url), 30000);
+                  } catch (e) {
+                    toast({ type: 'error', msg: e.message });
+                  } finally {
+                    setPdfLoadingId(null);
+                  }
+                }}
+                className={cx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer',
+                  pdfLoadingId === oc.id
+                    ? 'bg-zinc-800 border border-zinc-700 text-zinc-500 cursor-not-allowed'
+                    : 'bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20',
+                )}
               >
                 <Icon name="upload" size={12} />
-                Abrir factura PDF
+                {pdfLoadingId === oc.id ? 'Abriendo factura...' : 'Abrir factura PDF'}
               </button>
             ) : (
               <span className="text-[11px] text-zinc-600 italic">Sin factura adjunta</span>

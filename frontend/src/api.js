@@ -71,6 +71,25 @@ const get  = path         => request('GET',  path);
 const post = (path, b, f) => request('POST', path, b, f);
 const put  = (path, b, f) => request('PUT',  path, b, f);
 
+async function downloadBlob(path) {
+  const makeOpts = (token) => ({
+    method: 'GET',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
+  });
+  let res = await fetch(`${BASE}${path}`, makeOpts(_accessToken));
+  if (res.status === 401) {
+    const newToken = await _tryRefresh();
+    if (newToken) res = await fetch(`${BASE}${path}`, makeOpts(newToken));
+  }
+  if (!res.ok) {
+    let msg = `Error ${res.status}`;
+    try { const j = await res.json(); msg = j.detail || j.message || msg; } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  return res.blob();
+}
+
 export const api = {
   auth: {
     login:       body => post('/auth/login/', body).then(r => r),
@@ -100,27 +119,31 @@ export const api = {
     createPM:          body => post('/desarrollo/pedidos-material', body).then(r => r.data),
     getPlanos:         ()   => get('/desarrollo/planos').then(r => r.data),
     uploadPlano:       fd   => post('/desarrollo/planos', fd, true).then(r => r.data),
+    downloadPlano:     (id) => downloadBlob(`/desarrollo/planos/${id}/archivo`),
   },
 
   compras: {
     getPMs:           ()   => get('/compras/pedidos-material').then(r => r.data),
     getInsumos:       q    => get(`/compras/insumos${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(r => r.data),
     createInsumo:     body => post('/compras/insumos', body).then(r => r.data),
-    getFacturas:      ()   => get('/compras/facturas').then(r => r.data),
-    registrarFactura: fd   => post('/compras/facturas', fd, true).then(r => r.data),
+    getFacturas:         ()   => get('/compras/facturas').then(r => r.data),
+    registrarFactura:    fd   => post('/compras/facturas', fd, true).then(r => r.data),
+    downloadFacturaPdf:  (id) => downloadBlob(`/compras/facturas/${id}/pdf`),
   },
 
   panol: {
-    getStock:            ()   => get('/panol/stock').then(r => r.data),
-    getIngresos:         ()   => get('/panol/ingresos').then(r => r.data),
-    registrarIngreso:    body => post('/panol/ingresos', body).then(r => r.data),
-    getMovimientos:      ()   => get('/panol/movimientos').then(r => r.data),
-    despacharProduccion: body => post('/panol/movimientos/produccion', body).then(r => r.data),
+    getStock:            ()     => get('/panol/stock').then(r => r.data),
+    getIngresos:         ()     => get('/panol/ingresos').then(r => r.data),
+    registrarIngreso:    body   => post('/panol/ingresos', body).then(r => r.data),
+    getMovimientos:      ()     => get('/panol/movimientos').then(r => r.data),
+    despacharProduccion: body   => post('/panol/movimientos/produccion', body).then(r => r.data),
+    getMaterialesOf:     (ofId) => get(`/panol/materiales-of/${ofId}`).then(r => r.data),
   },
 
   produccion: {
-    getLotes:      ()   => get('/produccion/lotes-terminados').then(r => r.data),
-    finalizarLote: body => post('/produccion/lotes-terminados', body).then(r => r.data),
+    getLotes:      ()         => get('/produccion/lotes-terminados').then(r => r.data),
+    finalizarLote: body       => post('/produccion/lotes-terminados', body).then(r => r.data),
+    avanzarEstado: (id, body) => post(`/produccion/lotes/${id}/avanzar`, body).then(r => r.data),
   },
 
   logistica: {

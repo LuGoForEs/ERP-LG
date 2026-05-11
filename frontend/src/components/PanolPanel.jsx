@@ -25,7 +25,10 @@ export default function PanolPanel() {
   // despacho form
   const [ofId, setOfId] = React.useState('');
   const [matItems, setMatItems] = React.useState([{ nombre: '', cantidad: '' }]);
+  const [ofMateriales, setOfMateriales] = React.useState([]);
+  const [ofMatLoading, setOfMatLoading] = React.useState(false);
   // catalogo
+  const [pdfLoading, setPdfLoading] = React.useState(false);
   const [artForm, setArtForm] = React.useState({ ...V2_EMPTY_ARTICULO });
   const [artFilter, setArtFilter] = React.useState('');
   const [stockSearch, setStockSearch] = React.useState('');
@@ -70,9 +73,32 @@ export default function PanolPanel() {
 
   React.useEffect(() => { load(); }, [load]);
 
-  const stockRows = Object.entries(stock).map(([material, stock_actual], i) => ({
-    id: i+1, material, stock_actual,
-  }));
+  React.useEffect(() => {
+    if (!ofId) { setOfMateriales([]); setMatItems([{ nombre: '', cantidad: '' }]); return; }
+    setOfMatLoading(true);
+    api.panol.getMaterialesOf(ofId)
+      .then(data => {
+        setOfMateriales(data);
+        if (data.length > 0) {
+          setMatItems(data.map(m => ({ nombre: m.nombre, cantidad: String(m.cantidad) })));
+        }
+      })
+      .catch(() => setOfMateriales([]))
+      .finally(() => setOfMatLoading(false));
+  }, [ofId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stockRows = Object.entries(stock).map(([material, stock_actual], i) => {
+    const ultimoIngreso = [...ingresos]
+      .sort((a, b) => b.id - a.id)
+      .find(ing => (ing.materiales || []).some(m => m.nombre === material));
+    return {
+      id: i + 1,
+      material,
+      stock_actual,
+      oc_id:         ultimoIngreso ? ultimoIngreso.factura_id : null,
+      fecha_ingreso: ultimoIngreso ? ultimoIngreso.created_at : null,
+    };
+  });
 
   const handleRegistrarIngreso = async () => {
     if (!facturaId) return;
@@ -122,6 +148,7 @@ export default function PanolPanel() {
       toast({ msg: `Materiales despachados a Producción — OF-${ofId}` });
       setOfId('');
       setMatItems([{ nombre: '', cantidad: '' }]);
+      setOfMateriales([]);
     } catch (e) {
       toast({ type: 'error', msg: e.message });
     } finally {
@@ -148,14 +175,18 @@ export default function PanolPanel() {
   );
 
   const sq = stockSearch.toLowerCase();
-  const stockRowsFiltrados = stockRows.filter(r => !sq || r.material.toLowerCase().includes(sq));
-  const movimientosCombinados = [
-    ...ingresos.map(i => ({ _tipo: 'ingreso', _id: `i-${i.id}`, ...i, id: `i-${i.id}` })),
-    ...movimientos.map(m => ({ _tipo: 'despacho', _id: `m-${m.id}`, ...m, id: `m-${m.id}` })),
-  ].sort((a, b) => (b._numId || 0) - (a._numId || 0));
-  const movimientosFiltrados = movimientosCombinados.filter(r => !sq ||
-    `${r._tipo} factura-${r.factura_id} OF-${r.of_id} ${(r.materiales||[]).map(m=>m.nombre).join(' ')} ${r.verificacion_estado} ${r.estado}`.toLowerCase().includes(sq)
-  );
+  const stockRowsFiltrados = stockRows.filter(r => !sq || [
+    r.material,
+    r.oc_id ? `OC-${r.oc_id}` : '',
+    r.fecha_ingreso ? r.fecha_ingreso.slice(0, 10) : '',
+  ].join(' ').toLowerCase().includes(sq));
+  const ingresosRows = ingresos
+    .map(i => ({ _tipo: 'ingreso', ...i, id: `i-${i.id}` }))
+    .filter(r => !sq || `OC-${r.factura_id} ${(r.materiales||[]).map(m=>m.nombre).join(' ')} ${r.verificacion_estado}`.toLowerCase().includes(sq));
+
+  const despachosRows = movimientos
+    .map(m => ({ _tipo: 'despacho', ...m, id: `m-${m.id}` }))
+    .filter(r => !sq || `OF-${r.of_id} ${(r.materiales||[]).map(m=>m.nombre).join(' ')} ${r.estado}`.toLowerCase().includes(sq));
 
   const MovimientoDetalle = ({ row }) => (
     <div className="border-t border-zinc-700 bg-zinc-900/50 px-4 py-3">
@@ -273,6 +304,14 @@ export default function PanolPanel() {
                     data={stockRowsFiltrados}
                     columns={[
                       { key: 'material', label: 'Material', sortable: true, cell: r => <span className="text-zinc-200 font-medium">{r.material}</span> },
+                      { key: 'oc_id', label: 'Último OC', sortable: true, accessor: r => r.oc_id || 0, cell: r => r.oc_id
+                        ? <span className="font-mono text-xs text-zinc-400">OC-{r.oc_id}</span>
+                        : <span className="text-zinc-600 text-xs">—</span>
+                      },
+                      { key: 'fecha_ingreso', label: 'Fecha ingreso', sortable: true, accessor: r => r.fecha_ingreso || '', cell: r => r.fecha_ingreso
+                        ? <span className="font-mono text-xs text-zinc-400">{r.fecha_ingreso.slice(0,10)}</span>
+                        : <span className="text-zinc-600 text-xs">—</span>
+                      },
                       { key: 'stock_actual', label: 'Stock', sortable: true, mono: true, align: 'right',
                         cell: r => <span className="font-mono font-bold text-base text-emerald-400">{r.stock_actual}</span> },
                     ]}
@@ -281,29 +320,60 @@ export default function PanolPanel() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle hint={movimientosFiltrados.length}>Historial de movimientos</CardTitle></CardHeader>
-              {movimientosFiltrados.length === 0
-                ? <EmptyState icon="arrow-up" msg={stockSearch ? 'Sin resultados' : 'Sin movimientos registrados'} />
+              <CardHeader><CardTitle hint={ingresosRows.length}>Ingresos de material</CardTitle></CardHeader>
+              {ingresosRows.length === 0
+                ? <EmptyState icon="arrow-up" msg={stockSearch ? 'Sin resultados' : 'Sin ingresos registrados'} hint={stockSearch ? 'Probá otro término' : 'Registrá un ingreso de factura'} />
                 : <DataTable
-                    data={movimientosFiltrados}
+                    data={ingresosRows}
                     onRowClick={row => setSelectedMov(prev => prev === row.id ? null : row.id)}
                     selectedId={selectedMov}
                     renderExpanded={row => <MovimientoDetalle row={row} />}
                     columns={[
-                      { key: '_tipo', label: 'Tipo', cell: r => <Badge accent={r._tipo === 'ingreso' ? 'emerald' : 'amber'}>{r._tipo === 'ingreso' ? '↑ Ingreso' : '↓ Despacho'}</Badge> },
-                      { key: 'ref', label: 'Referencia', cell: r => r._tipo === 'ingreso'
-                        ? <span className="text-zinc-400 text-xs">OC-{r.factura_id}</span>
-                        : <span className="text-zinc-400 text-xs">OF-{r.of_id}</span>
-                      },
-                      { key: 'materiales', label: 'Materiales', cell: r => {
-                        const mats = r.materiales || [];
-                        return <span className="text-zinc-400 text-xs">{mats.slice(0,2).map(m => m.nombre).join(', ')}{mats.length > 2 ? ` +${mats.length-2}` : ''}</span>;
-                      }},
-                      { key: 'items', label: 'Ítems', mono: true, align: 'center', cell: r => <span className="font-mono text-zinc-500">{(r.materiales||[]).length}</span> },
-                      { key: 'estado', label: 'Estado', cell: r => r._tipo === 'ingreso'
-                        ? <span className={cx('text-xs font-mono', r.verificacion_estado === 'conforme' ? 'text-emerald-400' : 'text-rose-400')}>{r.verificacion_estado}</span>
-                        : <span className="text-xs font-mono text-blue-400">{r.estado}</span>
-                      },
+                      { key: 'factura_id', label: 'OC', sortable: true, accessor: r => r.factura_id || 0,
+                        cell: r => <span className="font-mono text-xs text-zinc-300">OC-{r.factura_id}</span> },
+                      { key: 'created_at', label: 'Fecha', sortable: true, accessor: r => r.created_at || '',
+                        cell: r => <span className="font-mono text-xs text-zinc-500">{r.created_at ? r.created_at.slice(0,10) : '—'}</span> },
+                      { key: 'materiales', label: 'Materiales', sortable: true, accessor: r => (r.materiales||[])[0]?.nombre || '',
+                        cell: r => {
+                          const mats = r.materiales || [];
+                          return <span className="text-zinc-400 text-xs">{mats.slice(0,2).map(m => m.nombre).join(', ')}{mats.length > 2 ? ` +${mats.length-2}` : ''}</span>;
+                        }},
+                      { key: 'items', label: 'Ítems', sortable: true, mono: true, align: 'center', accessor: r => (r.materiales||[]).length,
+                        cell: r => <span className="font-mono text-zinc-500">{(r.materiales||[]).length}</span> },
+                      { key: 'verificacion_estado', label: 'Estado', sortable: true, accessor: r => r.verificacion_estado || '',
+                        cell: r => (
+                          <span className={cx('text-xs font-mono', r.verificacion_estado === 'conforme' ? 'text-emerald-400' : 'text-rose-400')}>
+                            {r.verificacion_estado === 'conforme' ? 'Conforme' : 'No conforme'}
+                          </span>
+                        )},
+                    ]}
+                  />
+              }
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle hint={despachosRows.length}>Despachos a producción</CardTitle></CardHeader>
+              {despachosRows.length === 0
+                ? <EmptyState icon="arrow-down" msg={stockSearch ? 'Sin resultados' : 'Sin despachos registrados'} hint={stockSearch ? 'Probá otro término' : 'Despachá materiales a una OF aprobada'} />
+                : <DataTable
+                    data={despachosRows}
+                    onRowClick={row => setSelectedMov(prev => prev === row.id ? null : row.id)}
+                    selectedId={selectedMov}
+                    renderExpanded={row => <MovimientoDetalle row={row} />}
+                    columns={[
+                      { key: 'of_id', label: 'OF', sortable: true, accessor: r => r.of_id || 0,
+                        cell: r => <span className="font-mono text-xs text-zinc-300">OF-{r.of_id}</span> },
+                      { key: 'created_at', label: 'Fecha', sortable: true, accessor: r => r.created_at || '',
+                        cell: r => <span className="font-mono text-xs text-zinc-500">{r.created_at ? r.created_at.slice(0,10) : '—'}</span> },
+                      { key: 'materiales', label: 'Materiales', sortable: true, accessor: r => (r.materiales||[])[0]?.nombre || '',
+                        cell: r => {
+                          const mats = r.materiales || [];
+                          return <span className="text-zinc-400 text-xs">{mats.slice(0,2).map(m => m.nombre).join(', ')}{mats.length > 2 ? ` +${mats.length-2}` : ''}</span>;
+                        }},
+                      { key: 'items', label: 'Ítems', sortable: true, mono: true, align: 'center', accessor: r => (r.materiales||[]).length,
+                        cell: r => <span className="font-mono text-zinc-500">{(r.materiales||[]).length}</span> },
+                      { key: 'estado', label: 'Estado', sortable: true, accessor: r => r.estado || '',
+                        cell: r => <span className="text-xs font-mono text-blue-400">{r.estado}</span> },
                     ]}
                   />
               }
@@ -356,11 +426,29 @@ export default function PanolPanel() {
                         </span>
                         {facturaSeleccionada.tiene_pdf && (
                           <button
-                            onClick={() => window.open(`/api/v1/compras/facturas/${facturaSeleccionada.id}/pdf`, '_blank')}
-                            className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+                            disabled={pdfLoading}
+                            onClick={async () => {
+                              setPdfLoading(true);
+                              try {
+                                const blob = await api.compras.downloadFacturaPdf(facturaSeleccionada.id);
+                                const url = URL.createObjectURL(blob);
+                                window.open(url, '_blank');
+                                setTimeout(() => URL.revokeObjectURL(url), 30000);
+                              } catch (e) {
+                                toast({ type: 'error', msg: e.message });
+                              } finally {
+                                setPdfLoading(false);
+                              }
+                            }}
+                            className={cx(
+                              'flex items-center gap-1 text-[11px] transition-colors cursor-pointer',
+                              pdfLoading
+                                ? 'text-zinc-500 cursor-not-allowed'
+                                : 'text-amber-400 hover:text-amber-300',
+                            )}
                           >
                             <Icon name="upload" size={11} />
-                            Ver PDF
+                            {pdfLoading ? 'Abriendo...' : 'Ver PDF'}
                           </button>
                         )}
                       </div>
@@ -451,6 +539,47 @@ export default function PanolPanel() {
                       options={[{value:'',label:'Seleccioná OF...'}, ...ofsAprobadas.map(o => ({value: o.id, label: `OF-${o.id} — ${o.cliente}`}))]}
                     />
                   </Field>
+
+                  {ofMatLoading && (
+                    <p className="text-[11px] text-zinc-500 font-mono">Cargando materiales...</p>
+                  )}
+
+                  {ofId && !ofMatLoading && ofMateriales.length === 0 && (
+                    <p className="text-[11px] text-zinc-500 italic">Sin materiales ingresados al stock para esta OF.</p>
+                  )}
+
+                  {ofMateriales.length > 0 && (
+                    <div className="rounded-md border border-zinc-800 overflow-hidden">
+                      <div className="px-3 py-1.5 bg-zinc-900/60 border-b border-zinc-800 flex items-center justify-between">
+                        <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Materiales solicitados</span>
+                        <span className="font-mono text-[10px] text-zinc-600">
+                          {ofMateriales.filter(m => m.stock_actual >= m.cantidad).length}/{ofMateriales.length} con stock
+                        </span>
+                      </div>
+                      <div className="divide-y divide-zinc-800/60">
+                        {ofMateriales.map((m, idx) => {
+                          const hayStock = m.stock_actual >= m.cantidad;
+                          return (
+                            <div key={idx} className={cx(
+                              'flex items-center justify-between px-3 py-2',
+                              hayStock ? 'bg-emerald-500/5' : 'bg-rose-500/5',
+                            )}>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={cx('w-1.5 h-1.5 rounded-full shrink-0', hayStock ? 'bg-emerald-400' : 'bg-rose-400')} />
+                                <span className="text-xs text-zinc-200 truncate">{m.nombre}</span>
+                              </div>
+                              <div className="shrink-0 ml-2 text-right">
+                                <span className={cx('font-mono text-xs font-semibold', hayStock ? 'text-emerald-400' : 'text-rose-400')}>
+                                  {m.stock_actual}
+                                </span>
+                                <span className="font-mono text-[10px] text-zinc-600"> / {m.cantidad} {m.unidad}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-1.5">
                     <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Materiales a despachar</div>

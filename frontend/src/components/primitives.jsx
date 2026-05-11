@@ -120,7 +120,7 @@ export function Select({ value, onChange, options, className = '', placeholder, 
       onChange={onChange}
       {...props}
       className={cx(
-        'h-9 w-full rounded-md bg-zinc-950/50 border border-zinc-800 px-3 text-sm text-zinc-100',
+        'h-9 w-full rounded-md bg-zinc-950/50 border border-zinc-800 pl-3 pr-8 text-sm text-zinc-100',
         'hover:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500',
         'cursor-pointer transition-colors',
         className,

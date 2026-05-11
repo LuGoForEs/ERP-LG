@@ -16,7 +16,7 @@ from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from .models import UserProfile, UserRole
-from .emails import send_activation_email
+from .emails import send_activation_email, send_reset_email
 
 ALL_PANELS = ['comercial', 'administracion', 'desarrollo', 'compras', 'panol', 'produccion', 'logistica']
 
@@ -65,6 +65,7 @@ def _build_roles_payload(user):
 def _issue_tokens(user, response_data=None):
     refresh = RefreshToken.for_user(user)
     roles = _build_roles_payload(user)
+    profile, _ = UserProfile.objects.get_or_create(user=user)
     data = {
         'access': str(refresh.access_token),
         'user': {
@@ -73,6 +74,7 @@ def _issue_tokens(user, response_data=None):
             'email': user.email,
             'full_name': f'{user.first_name} {user.last_name}'.strip() or user.username,
             'is_superuser': user.is_superuser,
+            'totp_enabled': profile.totp_enabled,
             'roles': roles,
         },
         **(response_data or {}),
@@ -408,6 +410,143 @@ class UserDetailView(APIView):
             return Response({'detail': 'Usuario no encontrado.'}, status=404)
         user.delete()
         return Response(status=204)
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email    = request.data.get('email', '').strip().lower()
+        dni      = request.data.get('dni', '').strip()
+        roles    = request.data.get('roles', [])
+
+        if not email or not dni:
+            return Response({'detail': 'Email y DNI son requeridos.'}, status=400)
+        if not roles:
+            return Response({'detail': 'Ingresá al menos un rol.'}, status=400)
+
+        try:
+            user = User.objects.get(email=email, is_active=True)
+        except User.DoesNotExist:
+            return Response({'detail': 'No se encontró una cuenta activa con ese email.'}, status=404)
+
+        profile = getattr(user, 'profile', None)
+        if not profile or profile.dni.strip() != dni:
+            return Response({'detail': 'El documento no coincide con el email ingresado.'}, status=400)
+
+        submitted = {r.strip().lower() for r in roles if r.strip()}
+        valid_keys = set(dict(UserRole.ROLE_CHOICES).keys())
+        if not submitted.issubset(valid_keys):
+            return Response({'detail': 'Uno o más roles son inválidos.'}, status=400)
+
+        if user.is_superuser:
+            pass  # superuser acepta cualquier rol válido
+        else:
+            user_roles = set(UserRole.objects.filter(user=user).values_list('role', flat=True))
+            if not submitted.intersection(user_roles):
+                return Response({'detail': 'Los roles ingresados no coinciden con los de la cuenta.'}, status=400)
+
+        token = uuid.uuid4()
+        profile.reset_token = token
+        profile.reset_token_created_at = timezone.now()
+        profile.save()
+
+        try:
+            send_reset_email(user, token, settings.FRONTEND_URL)
+        except Exception as e:
+            return Response({'detail': f'Error al enviar email: {str(e)}'}, status=500)
+
+        return Response({'message': f'Email de recuperación enviado a {email}'})
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token_str = request.data.get('token', '').strip()
+        password  = request.data.get('password', '')
+
+        if not token_str or not password:
+            return Response({'detail': 'Token y contraseña son requeridos.'}, status=400)
+
+        try:
+            token_uuid = uuid.UUID(token_str)
+        except ValueError:
+            return Response({'detail': 'Token inválido.'}, status=400)
+
+        try:
+            profile = UserProfile.objects.select_related('user').get(reset_token=token_uuid)
+        except UserProfile.DoesNotExist:
+            return Response({'detail': 'El enlace es inválido o ya fue utilizado.'}, status=400)
+
+        if not profile.user.is_active:
+            return Response({'detail': 'Esta cuenta no está activa.'}, status=400)
+
+        if profile.reset_token_created_at:
+            age = timezone.now() - profile.reset_token_created_at
+            if age > timedelta(hours=72):
+                return Response({'detail': 'El enlace expiró (72 horas). Solicitá uno nuevo.'}, status=400)
+
+        profile.user.set_password(password)
+        profile.user.save()
+        profile.reset_token = None
+        profile.reset_token_created_at = None
+        profile.save()
+
+        return Response({'message': 'Contraseña actualizada correctamente'})
+
+
+class ActivationLinkView(APIView):
+    """Devuelve (o genera) el link de activación para un usuario inactivo. Solo SuperUser."""
+    permission_classes = [IsSuperUser]
+
+    def post(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'detail': 'Usuario no encontrado.'}, status=404)
+
+        if user.is_active:
+            return Response({'detail': 'Esta cuenta ya está activa.'}, status=400)
+
+        token = uuid.uuid4()
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.activation_token = token
+        profile.activation_token_created_at = timezone.now()
+        profile.save()
+
+        link = f"{settings.FRONTEND_URL.rstrip('/')}/?activate={token}"
+        return Response({'link': link, 'expires_in': '72 horas'})
+
+
+class ResendActivationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email', '').strip().lower()
+        if not email:
+            return Response({'detail': 'El email es requerido.'}, status=400)
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'detail': 'No existe una cuenta registrada con ese email.'}, status=404)
+
+        if user.is_active:
+            return Response({'detail': 'Esta cuenta ya está activa. El usuario puede iniciar sesión normalmente.'}, status=400)
+
+        token = uuid.uuid4()
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.activation_token = token
+        profile.activation_token_created_at = timezone.now()
+        profile.save()
+
+        try:
+            send_activation_email(user, token, settings.FRONTEND_URL)
+        except Exception as e:
+            return Response({'detail': f'Error al enviar el email: {str(e)}'}, status=500)
+
+        return Response({'message': f'Link de activación enviado a {email}'})
 
 
 class ActivateAccountView(APIView):

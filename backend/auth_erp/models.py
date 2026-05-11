@@ -11,6 +11,8 @@ class UserProfile(models.Model):
     expiration_date           = models.DateField(null=True, blank=True)
     activation_token          = models.UUIDField(null=True, blank=True, db_index=True)
     activation_token_created_at = models.DateTimeField(null=True, blank=True)
+    reset_token               = models.UUIDField(null=True, blank=True, db_index=True)
+    reset_token_created_at    = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'user_profiles'

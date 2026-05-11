@@ -35,6 +35,9 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75 }) {
     'circle-dot':  <><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1" fill="currentColor"/></>,
     'shield':      <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></>,
     'log-out':     <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
+    'users':       <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+    'user-plus':   <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></>,
+    'edit':        <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
   };
   return (
     <svg
@@ -219,7 +222,7 @@ export function CardTitle({ children, hint }) {
 }
 
 // ─── METRIC ───────────────────────────────────────────────────────────────────
-export function Metric({ label, value, sub, accent = 'slate', icon }) {
+export function Metric({ label, value, sub, accent = 'slate', icon, onClick }) {
   const accentCls = {
     blue: 'border-t-blue-500/60', violet: 'border-t-violet-500/60', cyan: 'border-t-cyan-500/60',
     amber: 'border-t-amber-500/60', emerald: 'border-t-emerald-500/60', rose: 'border-t-rose-500/60',
@@ -232,10 +235,14 @@ export function Metric({ label, value, sub, accent = 'slate', icon }) {
     orange: 'text-orange-400 bg-orange-500/10', slate: 'text-zinc-400 bg-zinc-800',
   };
   return (
-    <div className={cx(
-      'flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3 border-t-2 backdrop-blur-sm',
-      accentCls[accent] || accentCls.slate,
-    )}>
+    <div
+      onClick={onClick}
+      className={cx(
+        'flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3 border-t-2 backdrop-blur-sm',
+        accentCls[accent] || accentCls.slate,
+        onClick && 'cursor-pointer hover:bg-zinc-800/60 transition-colors',
+      )}
+    >
       <div className="flex items-start justify-between mb-2">
         <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-zinc-500 font-semibold">{label}</span>
         {icon && (
@@ -497,7 +504,7 @@ export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin r
 }
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASetup }) {
+export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASetup, allowedPanels }) {
   const activeClasses = {
     blue:    'bg-blue-500/10 border-blue-500 text-zinc-100 font-medium',
     violet:  'bg-violet-500/10 border-violet-500 text-zinc-100 font-medium',
@@ -506,11 +513,16 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
     emerald: 'bg-emerald-500/10 border-emerald-500 text-zinc-100 font-medium',
     rose:    'bg-rose-500/10 border-rose-500 text-zinc-100 font-medium',
     orange:  'bg-orange-500/10 border-orange-500 text-zinc-100 font-medium',
+    indigo:  'bg-indigo-500/10 border-indigo-500 text-zinc-100 font-medium',
   };
   const iconActiveClasses = {
     blue: 'text-blue-400', violet: 'text-violet-400', cyan: 'text-cyan-400',
-    amber: 'text-amber-400', emerald: 'text-emerald-400', rose: 'text-rose-400', orange: 'text-orange-400',
+    amber: 'text-amber-400', emerald: 'text-emerald-400', rose: 'text-rose-400',
+    orange: 'text-orange-400', indigo: 'text-indigo-400',
   };
+  const visibleModules = allowedPanels
+    ? V2_MODULES.filter(m => allowedPanels.has(m.id))
+    : V2_MODULES;
 
   return (
     <aside className="w-[228px] shrink-0 h-screen sticky top-0 bg-zinc-950 border-r border-zinc-800/60 flex flex-col">
@@ -528,7 +540,7 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
 
       <nav className="flex-1 py-3 overflow-y-auto" role="navigation">
         <div className="px-4 mb-2 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-600 font-semibold">Módulos</div>
-        {V2_MODULES.map(m => {
+        {visibleModules.map(m => {
           const isActive = active === m.id;
           return (
             <button

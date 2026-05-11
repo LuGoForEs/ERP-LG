@@ -6,8 +6,9 @@ import {
   Metric, useToast, useSearchShortcut,
   DataTable, ModuleHeader, EmptyState,
 } from './primitives';
+import { usePermissions } from '../contexts/PermissionsContext';
 
-function DespachoDetalle({ despacho, onClose, onAccion }) {
+function DespachoDetalle({ despacho, onClose, onAccion, readonly }) {
   const Field2 = ({ label, children, full }) => (
     <div className={full ? 'col-span-2' : ''}>
       <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">{label}</p>
@@ -58,7 +59,7 @@ function DespachoDetalle({ despacho, onClose, onAccion }) {
         )}
 
         {/* Acciones */}
-        {(despacho.estado === 'pendiente' || despacho.estado === 'autorizado') && (
+        {!readonly && (despacho.estado === 'pendiente' || despacho.estado === 'autorizado') && (
           <div className="col-span-2 flex justify-end gap-2 pt-1 border-t border-zinc-800">
             {despacho.estado === 'pendiente' && (
               <Button
@@ -105,6 +106,8 @@ function DespachoDetalle({ despacho, onClose, onAccion }) {
 }
 
 export default function LogisticaPanel({ openNewSignal }) {
+  const { isReadonly } = usePermissions();
+  const readonly = isReadonly('logistica');
   const [despachos, setDespachos] = React.useState([]);
   const [lotes, setLotes] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -287,7 +290,7 @@ export default function LogisticaPanel({ openNewSignal }) {
               : (
                 <DataTable
                   data={activos}
-                  columns={tableColumns(true)}
+                  columns={tableColumns(!readonly)}
                   onRowClick={handleRowClick}
                   selectedId={selected?.id}
                   renderExpanded={(row) => (
@@ -295,6 +298,7 @@ export default function LogisticaPanel({ openNewSignal }) {
                       despacho={row}
                       onClose={() => setSelected(null)}
                       onAccion={handleAccion}
+                      readonly={readonly}
                     />
                   )}
                 />
@@ -315,6 +319,7 @@ export default function LogisticaPanel({ openNewSignal }) {
                     despacho={row}
                     onClose={() => setSelected(null)}
                     onAccion={handleAccion}
+                    readonly={readonly}
                   />
                 )}
               />
@@ -355,15 +360,17 @@ export default function LogisticaPanel({ openNewSignal }) {
                 placeholder="Razón social..."
               />
             </Field>
-            <Button
-              onClick={handleCrear}
-              disabled={!form.lote_id || !form.destino.trim() || !form.transportista.trim() || saving}
-              accent="orange"
-              className="w-full"
-              icon="truck"
-            >
-              {saving ? 'Guardando...' : 'Crear despacho'}
-            </Button>
+            {!readonly && (
+              <Button
+                onClick={handleCrear}
+                disabled={!form.lote_id || !form.destino.trim() || !form.transportista.trim() || saving}
+                accent="orange"
+                className="w-full"
+                icon="truck"
+              >
+                {saving ? 'Guardando...' : 'Crear despacho'}
+              </Button>
+            )}
           </div>
         </Card>
       </div>

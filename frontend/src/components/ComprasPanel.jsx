@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../api';
+import { usePermissions } from '../contexts/PermissionsContext';
 import {
   cx, Icon, Button,
   EstadoBadge, Badge, Card, CardHeader, CardTitle,
@@ -8,6 +9,8 @@ import {
 } from './primitives';
 
 export default function ComprasPanel() {
+  const { isReadonly } = usePermissions();
+  const readonly = isReadonly('compras');
   const [pedidos, setPedidos] = React.useState([]);
   const [facturas, setFacturas] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -255,9 +258,11 @@ export default function ComprasPanel() {
                     ))}
                     {(!p.items || p.items.length === 0) && <div className="text-[11px] text-zinc-600">Sin ítems</div>}
                   </div>
-                  <Button onClick={() => handleCargar(p)} accent="amber" size="sm" className="w-full" icon={selectedPm?.id === p.id ? 'check' : 'arrow-down'}>
-                    {selectedPm?.id === p.id ? 'Cargado' : 'Procesar PM'}
-                  </Button>
+                  {!readonly && (
+                    <Button onClick={() => handleCargar(p)} accent="amber" size="sm" className="w-full" icon={selectedPm?.id === p.id ? 'check' : 'arrow-down'}>
+                      {selectedPm?.id === p.id ? 'Cargado' : 'Procesar PM'}
+                    </Button>
+                  )}
                 </Card>
               ))}
             </div>
@@ -308,9 +313,11 @@ export default function ComprasPanel() {
                   <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-600">Total estimado</div>
                   <div className="font-mono text-xl font-bold text-emerald-400">${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
                 </div>
-                <Button onClick={handleSubmit} disabled={!selectedPm || saving} accent="amber" icon="check">
-                  {saving ? 'Guardando...' : 'Confirmar OC'}
-                </Button>
+                {!readonly && (
+                  <Button onClick={handleSubmit} disabled={!selectedPm || saving} accent="amber" icon="check">
+                    {saving ? 'Guardando...' : 'Confirmar OC'}
+                  </Button>
+                )}
               </div>
             </div>
 

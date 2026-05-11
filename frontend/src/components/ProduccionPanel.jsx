@@ -6,6 +6,7 @@ import {
   Metric, useToast, useSearchShortcut,
   DataTable, ModuleHeader, EmptyState,
 } from './primitives';
+import { usePermissions } from '../contexts/PermissionsContext';
 
 const ESTADOS = [
   { key: 'pre_produccion',   label: 'Pre-Producción' },
@@ -86,6 +87,8 @@ function ProgresoEstados({ estado, observaciones = [], activeKey, onActiveKeyCha
 }
 
 export default function ProduccionPanel({ openNewSignal }) {
+  const { isReadonly } = usePermissions();
+  const readonly = isReadonly('produccion');
   const [lotes, setLotes] = React.useState([]);
   const [ofsAprobadas, setOfsAprobadas] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -361,15 +364,17 @@ export default function ProduccionPanel({ openNewSignal }) {
                         className="w-full rounded-md border border-zinc-700 bg-zinc-950 text-sm text-zinc-100 px-3 py-2 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 resize-none"
                       />
                     </Field>
-                    <Button
-                      onClick={handleAvanzar}
-                      disabled={!obsTexto.trim() || avanzando}
-                      accent="rose"
-                      className="w-full"
-                      icon="arrow-right"
-                    >
-                      {avanzando ? 'Avanzando...' : `Avanzar a "${nextEstado?.label}"`}
-                    </Button>
+                    {!readonly && (
+                      <Button
+                        onClick={handleAvanzar}
+                        disabled={!obsTexto.trim() || avanzando}
+                        accent="rose"
+                        className="w-full"
+                        icon="arrow-right"
+                      >
+                        {avanzando ? 'Avanzando...' : `Avanzar a "${nextEstado?.label}"`}
+                      </Button>
+                    )}
                   </>
                 ) : (
                   <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 text-center">
@@ -401,15 +406,17 @@ export default function ProduccionPanel({ openNewSignal }) {
                     placeholder="Ej: Tanque 5000L rev.2 — completo"
                   />
                 </Field>
-                <Button
-                  onClick={handleCrear}
-                  disabled={!form.of_id || !form.descripcion.trim() || saving}
-                  accent="rose"
-                  className="w-full"
-                  icon="check"
-                >
-                  {saving ? 'Guardando...' : 'Registrar inicio de lote'}
-                </Button>
+                {!readonly && (
+                  <Button
+                    onClick={handleCrear}
+                    disabled={!form.of_id || !form.descripcion.trim() || saving}
+                    accent="rose"
+                    className="w-full"
+                    icon="check"
+                  >
+                    {saving ? 'Guardando...' : 'Registrar inicio de lote'}
+                  </Button>
+                )}
               </div>
             </Card>
           )}

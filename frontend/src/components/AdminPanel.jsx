@@ -6,8 +6,11 @@ import {
   Metric, useToast, Label, Tabs, useSearchShortcut,
   SectionLabel, EmptyState, ModuleHeader,
 } from './primitives';
+import { usePermissions } from '../contexts/PermissionsContext';
 
 export default function AdminPanel() {
+  const { isReadonly } = usePermissions();
+  const readonly = isReadonly('administracion');
   const [ordenes, setOrdenes] = React.useState([]);
   const [despachos, setDespachos] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -66,7 +69,14 @@ export default function AdminPanel() {
   // OFs finalizadas: lote en despacho ejecutado
   const despEjecutados  = despachos.filter(d => d.estado === 'ejecutado');
   const ofIdsFinalizadas = new Set(despEjecutados.map(d => d.lote_id));
-  const totalPendARS = ordenes.filter(o => o.anticipo?.estado === 'pendiente').reduce((a, o) => a + (o.moneda_anticipo === 'ARS' ? (o.monto_anticipo || 0) : 0), 0);
+  const MONEDAS = ['ARS', 'USD', 'EUR'];
+  const MONEDA_SYMBOL = { ARS: '$', USD: 'U$S', EUR: '€' };
+  const [monedaMetrica, setMonedaMetrica] = React.useState('ARS');
+  const ciclicMoneda = () => setMonedaMetrica(m => MONEDAS[(MONEDAS.indexOf(m) + 1) % MONEDAS.length]);
+  const montoPend = ordenes.filter(o => o.anticipo?.estado === 'pendiente').reduce((a, o) => a + (o.moneda_anticipo === monedaMetrica ? (o.monto_anticipo || 0) : 0), 0);
+  const montoPendFmt = montoPend >= 1_000_000
+    ? `${MONEDA_SYMBOL[monedaMetrica]} ${(montoPend / 1_000_000).toFixed(1)}M`
+    : `${MONEDA_SYMBOL[monedaMetrica]} ${(montoPend / 1_000).toFixed(0)}k`;
 
   const handleSelect = (o) => {
     setSelected(o);
@@ -179,7 +189,7 @@ export default function AdminPanel() {
         <Metric label="Pend. validación" value={pendientes.length} icon="alert" accent="amber" />
         <Metric label="Validados" value={validadas.length} icon="check-circle" accent="emerald" />
         <Metric label="Despachos en revisión" value={despEnRevision.length} icon="truck" accent="violet" />
-        <Metric label="En espera" value={`$${(totalPendARS/1000).toFixed(0)}k`} sub="ARS pendientes" icon="wallet" accent="violet" />
+        <Metric label="En espera" value={montoPendFmt} sub={`Anticipos ${monedaMetrica} · clic para cambiar`} icon="wallet" accent="violet" onClick={ciclicMoneda} />
       </div>
 
       <div className="px-7 pt-4">
@@ -271,12 +281,14 @@ export default function AdminPanel() {
                         <Textarea rows={2} value={observacion} onChange={e => setObservacion(e.target.value)} placeholder="Notas sobre la validación..." />
                       </Field>
 
-                      <div className="flex gap-2 pt-2 border-t border-zinc-800">
-                        <Button onClick={handleSubmitAnticipo} disabled={saving}
-                          variant={pagado ? 'success' : 'danger'} icon={pagado ? 'check' : 'x'} className="flex-1">
-                          {saving ? 'Guardando...' : pagado ? 'Aprobar anticipo' : 'Rechazar anticipo'}
-                        </Button>
-                      </div>
+                      {!readonly && (
+                        <div className="flex gap-2 pt-2 border-t border-zinc-800">
+                          <Button onClick={handleSubmitAnticipo} disabled={saving}
+                            variant={pagado ? 'success' : 'danger'} icon={pagado ? 'check' : 'x'} className="flex-1">
+                            {saving ? 'Guardando...' : pagado ? 'Aprobar anticipo' : 'Rechazar anticipo'}
+                          </Button>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div>
@@ -368,12 +380,14 @@ export default function AdminPanel() {
                     <Textarea rows={2} value={obsDespacho} onChange={e => setObsDespacho(e.target.value)} placeholder="Notas..." />
                   </Field>
 
-                  <div className="flex gap-2 pt-2 border-t border-zinc-800">
-                    <Button onClick={handleAprobarDespacho} disabled={saving}
-                      variant={aprobado ? 'success' : 'danger'} icon={aprobado ? 'check' : 'x'} className="flex-1">
-                      {saving ? 'Guardando...' : aprobado ? 'Autorizar despacho' : 'Rechazar despacho'}
-                    </Button>
-                  </div>
+                  {!readonly && (
+                    <div className="flex gap-2 pt-2 border-t border-zinc-800">
+                      <Button onClick={handleAprobarDespacho} disabled={saving}
+                        variant={aprobado ? 'success' : 'danger'} icon={aprobado ? 'check' : 'x'} className="flex-1">
+                        {saving ? 'Guardando...' : aprobado ? 'Autorizar despacho' : 'Rechazar despacho'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </>
             )}

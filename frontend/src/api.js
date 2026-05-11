@@ -67,9 +67,10 @@ async function request(method, path, body, isFormData = false) {
   return res.json();
 }
 
-const get  = path         => request('GET',  path);
-const post = (path, b, f) => request('POST', path, b, f);
-const put  = (path, b, f) => request('PUT',  path, b, f);
+const get  = path             => request('GET',    path);
+const post = (path, b, f)     => request('POST',   path, b, f);
+const put  = (path, b, f)     => request('PUT',    path, b, f);
+const del  = path             => request('DELETE', path);
 
 async function downloadBlob(path) {
   const makeOpts = (token) => ({
@@ -92,14 +93,20 @@ async function downloadBlob(path) {
 
 export const api = {
   auth: {
-    login:       body => post('/auth/login/', body).then(r => r),
-    refresh:     ()   => fetch(`${BASE}/auth/refresh/`, { method: 'POST', credentials: 'include' }).then(r => r.json()),
-    logout:      ()   => post('/auth/logout/'),
-    me:          ()   => get('/auth/me/'),
-    setup2fa:    ()   => get('/auth/2fa/setup/'),
-    enable2fa:   body => post('/auth/2fa/enable/', body),
-    disable2fa:  body => post('/auth/2fa/disable/', body),
-    verify2fa:   body => post('/auth/2fa/verify/', body),
+    login:       body         => post('/auth/login/', body).then(r => r),
+    refresh:     ()           => fetch(`${BASE}/auth/refresh/`, { method: 'POST', credentials: 'include' }).then(r => r.json()),
+    logout:      ()           => post('/auth/logout/'),
+    me:          ()           => get('/auth/me/'),
+    setup2fa:    ()           => get('/auth/2fa/setup/'),
+    enable2fa:   body         => post('/auth/2fa/enable/', body),
+    disable2fa:  body         => post('/auth/2fa/disable/', body),
+    verify2fa:   body         => post('/auth/2fa/verify/', body),
+    // User management (SuperUser only)
+    listUsers:   ()           => get('/auth/users/'),
+    createUser:  body         => post('/auth/users/create/', body),
+    updateUser:  (id, body)   => put(`/auth/users/${id}/`, body),
+    deleteUser:  id           => del(`/auth/users/${id}/`),
+    activate:    body         => post('/auth/activate/', body),
   },
 
   comercial: {

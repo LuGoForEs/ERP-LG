@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../api';
+import { usePermissions } from '../contexts/PermissionsContext';
 import {
   cx, Icon, Button, Input, Field, Select,
   EstadoBadge, Badge, Card, CardHeader, CardTitle,
@@ -10,6 +11,8 @@ import {
 const V2_EMPTY_ITEM = { cantidad: '', unidad: 'u', descripcion: '', uso_en: '', observaciones: '' };
 
 export default function DesarrolloPanel({ openNewSignal }) {
+  const { isReadonly } = usePermissions();
+  const readonly = isReadonly('desarrollo');
   const [ofsAprobadas, setOfsAprobadas] = React.useState([]);
   const [pms, setPms] = React.useState([]);
   const [planos, setPlanos] = React.useState([]);
@@ -267,9 +270,11 @@ export default function DesarrolloPanel({ openNewSignal }) {
                       <button onClick={() => setPmItems(p => [...p, {...V2_EMPTY_ITEM}])} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-dashed border-zinc-800 text-xs text-zinc-400 hover:border-cyan-500/60 hover:text-cyan-400 transition-colors">
                         <Icon name="plus" size={12} />Agregar fila
                       </button>
-                      <Button onClick={handleCrearPM} accent="cyan" disabled={!hasValidItems || !pmForm.emisor.trim() || saving} icon="check">
-                        {saving ? 'Guardando...' : 'Crear PM'}
-                      </Button>
+                      {!readonly && (
+                        <Button onClick={handleCrearPM} accent="cyan" disabled={!hasValidItems || !pmForm.emisor.trim() || saving} icon="check">
+                          {saving ? 'Guardando...' : 'Crear PM'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -293,9 +298,11 @@ export default function DesarrolloPanel({ openNewSignal }) {
                       </label>
                     </Field>
                     <div className="flex justify-end pt-2 border-t border-zinc-800">
-                      <Button onClick={handleCrearPlano} accent="violet" disabled={!planoForm.descripcion.trim() || !planoArchivo || saving} icon="upload">
-                        {saving ? 'Enviando...' : 'Enviar a Producción'}
-                      </Button>
+                      {!readonly && (
+                        <Button onClick={handleCrearPlano} accent="violet" disabled={!planoForm.descripcion.trim() || !planoArchivo || saving} icon="upload">
+                          {saving ? 'Enviando...' : 'Enviar a Producción'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>

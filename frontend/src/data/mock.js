@@ -78,11 +78,13 @@ export const V2_MODULES = [
   { id: 'panol',          name: 'Pañol',          shortcut: 'n', accent: 'emerald' },
   { id: 'produccion',     name: 'Producción',     shortcut: 'r', accent: 'rose'    },
   { id: 'logistica',      name: 'Logística',      shortcut: 'l', accent: 'orange'  },
+  { id: 'usuarios',       name: 'Usuarios',       shortcut: 'u', accent: 'indigo'  },
 ];
 
 export const V2_MODULE_ICONS = {
   comercial: 'briefcase', administracion: 'wallet', desarrollo: 'compass',
   compras: 'shopping', panol: 'package', produccion: 'factory', logistica: 'truck',
+  usuarios: 'users',
 };
 
 export const V2_ESTADO = {

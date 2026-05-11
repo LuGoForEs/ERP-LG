@@ -7,8 +7,11 @@ import {
   EmptyState, DataTable, ModuleHeader,
 } from './primitives';
 import { useSharedArticulos, ArticuloForm, V2_EMPTY_ARTICULO, articuloIsValid } from '../contexts/ArticulosContext';
+import { usePermissions } from '../contexts/PermissionsContext';
 
 export default function PanolPanel() {
+  const { isReadonly } = usePermissions();
+  const readonly = isReadonly('panol');
   const { articulos, create: createArticulo } = useSharedArticulos();
   const [stock, setStock] = React.useState({});
   const [ingresos, setIngresos] = React.useState([]);
@@ -523,9 +526,11 @@ export default function PanolPanel() {
                     <Input value={notasVerif} onChange={e => setNotasVerif(e.target.value)} placeholder="Observaciones..." />
                   </Field>
 
-                  <Button onClick={handleRegistrarIngreso} disabled={!facturaId || saving} accent="emerald" className="w-full" icon="check">
-                    {saving ? 'Registrando...' : 'Registrar ingreso'}
-                  </Button>
+                  {!readonly && (
+                    <Button onClick={handleRegistrarIngreso} disabled={!facturaId || saving} accent="emerald" className="w-full" icon="check">
+                      {saving ? 'Registrando...' : 'Registrar ingreso'}
+                    </Button>
+                  )}
                 </>
                 );
               })()}
@@ -612,9 +617,11 @@ export default function PanolPanel() {
                     </button>
                   </div>
 
-                  <Button onClick={handleDespachar} disabled={!ofId || matItems.every(it => !it.nombre || !it.cantidad) || saving} accent="amber" className="w-full" icon="arrow-down">
-                    {saving ? 'Despachando...' : 'Despachar a Producción'}
-                  </Button>
+                  {!readonly && (
+                    <Button onClick={handleDespachar} disabled={!ofId || matItems.every(it => !it.nombre || !it.cantidad) || saving} accent="amber" className="w-full" icon="arrow-down">
+                      {saving ? 'Despachando...' : 'Despachar a Producción'}
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -651,13 +658,15 @@ export default function PanolPanel() {
             <div className="p-4">
               <ArticuloForm value={artForm} onChange={setArtForm} />
               <div className="pt-3 mt-3 border-t border-zinc-800">
-                <Button
-                  onClick={handleCrearArticulo}
-                  disabled={!articuloIsValid(artForm) || saving}
-                  accent="emerald"
-                  className="w-full"
-                  icon="plus"
-                >{saving ? 'Guardando...' : 'Crear artículo'}</Button>
+                {!readonly && (
+                  <Button
+                    onClick={handleCrearArticulo}
+                    disabled={!articuloIsValid(artForm) || saving}
+                    accent="emerald"
+                    className="w-full"
+                    icon="plus"
+                  >{saving ? 'Guardando...' : 'Crear artículo'}</Button>
+                )}
                 <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
                   Los artículos del catálogo quedan disponibles como insumos en Compras y Pañol.
                 </p>

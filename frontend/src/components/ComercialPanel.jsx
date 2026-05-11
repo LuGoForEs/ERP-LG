@@ -6,8 +6,11 @@ import {
   Metric, useToast, Dialog, Tabs, Kbd, useSearchShortcut,
   SectionLabel, EmptyState, ModuleHeader,
 } from './primitives';
+import { usePermissions } from '../contexts/PermissionsContext';
 
 export default function ComercialPanel({ openNewSignal }) {
+  const { isReadonly } = usePermissions();
+  const readonly = isReadonly('comercial');
   const [ofs, setOfs] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [selected, setSelected] = React.useState(null);
@@ -38,6 +41,15 @@ export default function ComercialPanel({ openNewSignal }) {
   const pendientes  = ofs.filter(o => o.estado === 'pendiente_anticipo');
   const aprobadas   = ofs.filter(o => o.estado === 'aprobada');
   const rechazadas  = ofs.filter(o => o.estado === 'rechazada_anticipo');
+
+  const MONEDAS = ['ARS', 'USD', 'EUR'];
+  const MONEDA_SYMBOL = { ARS: '$', USD: 'U$S', EUR: '€' };
+  const [monedaMetrica, setMonedaMetrica] = React.useState('ARS');
+  const ciclicMoneda = () => setMonedaMetrica(m => MONEDAS[(MONEDAS.indexOf(m) + 1) % MONEDAS.length]);
+  const montoPendiente = pendientes.reduce((a, o) => a + (o.moneda_anticipo === monedaMetrica ? (o.monto_anticipo || 0) : 0), 0);
+  const montoPendienteFmt = montoPendiente >= 1_000_000
+    ? `${MONEDA_SYMBOL[monedaMetrica]} ${(montoPendiente / 1_000_000).toFixed(1)}M`
+    : `${MONEDA_SYMBOL[monedaMetrica]} ${(montoPendiente / 1_000).toFixed(0)}k`;
 
   const filtered = ofs.filter(o => {
     if (filter === 'pendientes'  && o.estado !== 'pendiente_anticipo') return false;
@@ -109,7 +121,7 @@ export default function ComercialPanel({ openNewSignal }) {
               />
               <span className="absolute right-2 top-1/2 -translate-y-1/2"><Kbd>/</Kbd></span>
             </div>
-            <Button onClick={() => setDialogOpen(true)} icon="plus" accent="blue">Nueva OF</Button>
+            {!readonly && <Button onClick={() => setDialogOpen(true)} icon="plus" accent="blue">Nueva OF</Button>}
           </div>
         }
       />
@@ -119,8 +131,10 @@ export default function ComercialPanel({ openNewSignal }) {
         <Metric label="Pend. anticipo" value={pendientes.length} sub="En espera de aprobación" icon="alert" accent="amber" />
         <Metric label="Aprobadas" value={aprobadas.length} sub="En producción" icon="check-circle" accent="emerald" />
         <Metric label="Monto pendiente"
-          value={`$${(pendientes.reduce((a,o) => a + (o.moneda_anticipo === 'ARS' ? (o.monto_anticipo||0) : 0), 0) / 1000).toFixed(0)}k`}
-          sub="Anticipos ARS" icon="wallet" accent="violet" />
+          value={montoPendienteFmt}
+          sub={`Anticipos ${monedaMetrica} · clic para cambiar`}
+          icon="wallet" accent="violet"
+          onClick={ciclicMoneda} />
       </div>
 
       <div className="px-7 py-5 grid grid-cols-[340px_1fr] gap-4 items-start">

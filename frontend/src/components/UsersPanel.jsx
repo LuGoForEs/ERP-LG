@@ -33,35 +33,52 @@ function RolesRepeater({ roles, onChange }) {
     onChange(next);
   };
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {roles.map((r, i) => (
-        <div key={i} className="flex gap-2 items-center">
-          <Select
-            value={r.role}
-            onChange={e => updateRole(i, 'role', e.target.value)}
-            options={ROLE_OPTIONS}
-            className="flex-1"
-          />
-          <Select
-            value={r.permission}
-            onChange={e => updateRole(i, 'permission', e.target.value)}
-            options={PERM_OPTIONS}
-            className="w-44"
-          />
+        <div key={i} className="flex items-center gap-2 group">
+          <div className="flex-1 flex items-center bg-zinc-950/40 border border-zinc-800/80 rounded-md focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-all">
+            <div className="flex-1 relative border-r border-zinc-800/60">
+              <select
+                value={r.role}
+                onChange={e => updateRole(i, 'role', e.target.value)}
+                className="appearance-none block w-full h-8 bg-transparent border-none text-sm text-zinc-200 focus:ring-0 pl-3 pr-8 cursor-pointer"
+                style={{ backgroundImage: 'none' }}
+              >
+                {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>)}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-500">
+                <Icon name="chevron-down" size={13} />
+              </div>
+            </div>
+            <div className="w-[140px] relative bg-zinc-900/20 rounded-r-md">
+              <select
+                value={r.permission}
+                onChange={e => updateRole(i, 'permission', e.target.value)}
+                className="appearance-none block w-full h-8 bg-transparent border-none text-[11px] font-medium text-zinc-400 focus:ring-0 pl-3 pr-8 cursor-pointer"
+                style={{ backgroundImage: 'none' }}
+              >
+                {PERM_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>)}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-500">
+                <Icon name="chevron-down" size={13} />
+              </div>
+            </div>
+          </div>
           <button
             onClick={() => removeRole(i)}
             disabled={roles.length <= 1}
-            className="text-zinc-600 hover:text-rose-400 disabled:opacity-20 px-1"
+            className="w-7 h-8 shrink-0 rounded text-zinc-600 hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-20 transition-colors flex items-center justify-center"
+            title="Eliminar rol"
           >
-            <Icon name="x" size={14} />
+            <Icon name="trash" size={13} />
           </button>
         </div>
       ))}
       <button
         onClick={addRole}
-        className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-dashed border-zinc-800 text-xs text-zinc-400 hover:border-indigo-500/60 hover:text-indigo-400 transition-colors"
+        className="w-full h-8 mt-1 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-800 text-xs text-zinc-500 hover:border-indigo-500/40 hover:text-indigo-400 hover:bg-indigo-500/5 transition-colors"
       >
-        <Icon name="plus" size={12} />Agregar rol
+        <Icon name="plus" size={12} /> Añadir rol
       </button>
     </div>
   );

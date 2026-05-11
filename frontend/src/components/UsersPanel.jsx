@@ -29,45 +29,44 @@ function RolesRepeater({ roles, onChange }) {
   const addRole = () => onChange([...roles, { role: 'comercial', permission: 'rw' }]);
   const removeRole = (i) => onChange(roles.filter((_, idx) => idx !== i));
   const updateRole = (i, key, val) => {
-    const next = roles.map((r, idx) => idx === i ? { ...r, [key]: val } : r);
-    onChange(next);
+    onChange(roles.map((r, idx) => idx === i ? { ...r, [key]: val } : r));
   };
   return (
     <div className="space-y-2.5">
       {roles.map((r, i) => (
         <div key={i} className="flex items-center gap-2 group">
           <div className="flex-1 flex items-center bg-zinc-950/40 border border-zinc-800/80 rounded-md focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-all">
-            <div className="flex-1 relative border-r border-zinc-800/60">
+            <div className="w-1/2 relative border-r border-zinc-800/60">
               <select
                 value={r.role}
                 onChange={e => updateRole(i, 'role', e.target.value)}
-                className="appearance-none block w-full h-8 bg-transparent border-none text-sm text-zinc-200 focus:ring-0 pl-3 pr-8 py-0 cursor-pointer"
+                className="appearance-none block w-full h-8 bg-transparent border-none text-xs text-zinc-200 focus:ring-0 pl-2.5 pr-7 py-0 cursor-pointer"
                 style={{ backgroundImage: 'none' }}
               >
                 {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>)}
               </select>
-              <div className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-zinc-500">
-                <Icon name="chevron-down" size={13} />
+              <div className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-zinc-500">
+                <Icon name="chevron-down" size={12} />
               </div>
             </div>
-            <div className="w-[140px] relative bg-zinc-900/20 rounded-r-md">
+            <div className="w-1/2 relative bg-zinc-900/10 rounded-r-md">
               <select
                 value={r.permission}
                 onChange={e => updateRole(i, 'permission', e.target.value)}
-                className="appearance-none block w-full h-8 bg-transparent border-none text-[11px] font-medium text-zinc-400 focus:ring-0 pl-3 pr-8 py-0 cursor-pointer"
+                className="appearance-none block w-full h-8 bg-transparent border-none text-[10px] font-medium text-zinc-400 focus:ring-0 pl-2.5 pr-7 py-0 cursor-pointer"
                 style={{ backgroundImage: 'none' }}
               >
                 {PERM_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-zinc-900">{o.label}</option>)}
               </select>
-              <div className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-zinc-500">
-                <Icon name="chevron-down" size={13} />
+              <div className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-zinc-500">
+                <Icon name="chevron-down" size={12} />
               </div>
             </div>
           </div>
           <button
             onClick={() => removeRole(i)}
             disabled={roles.length <= 1}
-            className="w-7 h-8 shrink-0 rounded text-zinc-600 hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-20 transition-colors flex items-center justify-center"
+            className="w-8 h-8 shrink-0 rounded text-zinc-600 hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-20 transition-colors flex items-center justify-center"
             title="Eliminar rol"
           >
             <Icon name="trash" size={13} />
@@ -76,7 +75,7 @@ function RolesRepeater({ roles, onChange }) {
       ))}
       <button
         onClick={addRole}
-        className="w-full h-8 mt-1 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-800 text-xs text-zinc-500 hover:border-indigo-500/40 hover:text-indigo-400 hover:bg-indigo-500/5 transition-colors"
+        className="w-full h-8 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-800 text-xs text-zinc-500 hover:border-indigo-500/40 hover:text-indigo-400 hover:bg-indigo-500/5 transition-colors"
       >
         <Icon name="plus" size={12} /> Añadir rol
       </button>
@@ -157,6 +156,9 @@ export default function UsersPanel() {
   const [errors, setErrors] = React.useState({});
   const [saving, setSaving] = React.useState(false);
   const [delConfirm, setDelConfirm] = React.useState(false);
+  const [activateOpen, setActivateOpen] = React.useState(false);
+  const [activateEmail, setActivateEmail] = React.useState('');
+  const [activateSending, setActivateSending] = React.useState(false);
 
   const load = React.useCallback(async () => {
     try {
@@ -237,6 +239,31 @@ export default function UsersPanel() {
       toast({ type: 'error', msg: e.message });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCopyLink = async (userId) => {
+    try {
+      const res = await api.auth.getActivationLink(userId);
+      await navigator.clipboard.writeText(res.link);
+      toast({ msg: 'Link de activación copiado al portapapeles' });
+    } catch (e) {
+      toast({ type: 'error', msg: e.message });
+    }
+  };
+
+  const handleResendActivation = async () => {
+    if (!activateEmail.trim()) return;
+    setActivateSending(true);
+    try {
+      const res = await api.auth.resendActivation({ email: activateEmail.trim().toLowerCase() });
+      toast({ msg: res.message });
+      setActivateOpen(false);
+      setActivateEmail('');
+    } catch (e) {
+      toast({ type: 'error', msg: e.message });
+    } finally {
+      setActivateSending(false);
     }
   };
 
@@ -364,9 +391,21 @@ export default function UsersPanel() {
                   <p className="text-sm text-zinc-400 font-mono px-1">{selected.email}</p>
                 </Field>
                 <Field label="Estado">
-                  <p className={cx('text-sm font-mono px-1', selected.is_active ? 'text-emerald-400' : 'text-zinc-500')}>
-                    {selected.is_active ? 'Activo' : 'Pendiente de activación'}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <p className={cx('text-sm font-mono px-1', selected.is_active ? 'text-emerald-400' : 'text-amber-400')}>
+                      {selected.is_active ? 'Activo' : 'Pendiente de activación'}
+                    </p>
+                    {!selected.is_active && (
+                      <button
+                        onClick={() => handleCopyLink(selected.id)}
+                        className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-amber-400 hover:bg-amber-500/5 border border-zinc-800 hover:border-amber-500/30 rounded px-2 py-0.5 transition-colors"
+                        title="Genera un nuevo link de activación y lo copia al portapapeles"
+                      >
+                        <Icon name="mail" size={11} />
+                        Copiar link
+                      </button>
+                    )}
+                  </div>
                 </Field>
                 <Field label="Roles">
                   {selected.is_superuser ? (
@@ -420,6 +459,42 @@ export default function UsersPanel() {
           )}
         </div>
       )}
+
+      <Dialog
+        open={activateOpen}
+        onClose={() => { setActivateOpen(false); setActivateEmail(''); }}
+        title="Activar cuenta"
+        size="sm"
+      >
+        <div className="p-5 space-y-4">
+          <p className="text-xs text-zinc-500 leading-relaxed">
+            Ingresá el email de la cuenta a activar. Solo se puede activar una cuenta que haya sido registrada previamente y aún no esté activa.
+          </p>
+          <Field label="Email de la cuenta" required>
+            <Input
+              type="email"
+              value={activateEmail}
+              onChange={e => setActivateEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleResendActivation()}
+              placeholder="usuario@empresa.com"
+              autoFocus
+            />
+          </Field>
+        </div>
+        <div className="border-t border-zinc-800 px-5 py-3 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => { setActivateOpen(false); setActivateEmail(''); }}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleResendActivation}
+            accent="amber"
+            icon="mail"
+            disabled={!activateEmail.trim() || activateSending}
+          >
+            {activateSending ? 'Enviando...' : 'Enviar link de activación'}
+          </Button>
+        </div>
+      </Dialog>
 
       <Dialog open={createOpen} onClose={() => { setCreateOpen(false); setErrors({}); }} title="Nuevo usuario" size="md">
         <div className="p-5 space-y-4">

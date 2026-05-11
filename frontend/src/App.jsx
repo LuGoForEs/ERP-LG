@@ -6,6 +6,7 @@ import { PermissionsProvider, usePermissions } from './contexts/PermissionsConte
 import LoginPage from './components/LoginPage';
 import TwoFASetupDialog from './components/TwoFASetupDialog';
 import ActivationPage from './components/ActivationPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import ComercialPanel from './components/ComercialPanel';
 import AdminPanel from './components/AdminPanel';
 import DesarrolloPanel from './components/DesarrolloPanel';
@@ -29,6 +30,7 @@ const PANELS = {
 
 function AppInner() {
   const activateToken = new URLSearchParams(window.location.search).get('activate');
+  const resetToken    = new URLSearchParams(window.location.search).get('reset');
 
   const { user, loading, partialToken, logout } = useAuth();
   const { allowedPanels } = usePermissions();
@@ -51,7 +53,7 @@ function AppInner() {
     if (!allowedPanels.size || allowedPanels.has(id)) setActive(id);
   }, [allowedPanels]);
 
-  useGlobalShortcuts(safeSetActive, () => setShowShortcuts(true), () => setNewSignal(s => s + 1));
+  useGlobalShortcuts(safeSetActive, () => setShowShortcuts(true), () => setNewSignal(s => s + 1), allowedPanels);
 
   const handleUpdated2FA = async () => {
     try { const u = await api.auth.me(); setCurrentUser(u); } catch { /* ignore */ }
@@ -59,6 +61,10 @@ function AppInner() {
 
   if (activateToken) {
     return <ActivationPage token={activateToken} />;
+  }
+
+  if (resetToken) {
+    return <ResetPasswordPage token={resetToken} />;
   }
 
   if (loading) {
@@ -93,7 +99,7 @@ function AppInner() {
         <main className="flex-1 min-w-0 max-h-screen overflow-y-auto">
           <Panel openNewSignal={newSignal} />
         </main>
-        <ShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+        <ShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} allowedPanels={allowedPanels} />
         <TwoFASetupDialog
           user={currentUser}
           open={show2FA}

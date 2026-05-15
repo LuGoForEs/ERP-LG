@@ -9,6 +9,7 @@ from .serializers import AnticipoSerializer, OrdenFabricacionSerializer, Despach
 
 from django.contrib.auth.models import User
 from django.db.models import Sum
+from notificaciones.events import emit_event
 
 class AdministracionViewSet(viewsets.ViewSet):
     
@@ -76,6 +77,21 @@ class AdministracionViewSet(viewsets.ViewSet):
             orden.estado = "aprobada" if pagado else "rechazada_anticipo"
             orden.save()
 
+            of_ref = orden.id
+            cliente = orden.cliente
+            if pagado:
+                emit_event(
+                    'administracion', ['comercial', 'desarrollo'], 'anticipo_validado',
+                    f"Administración aprobó el anticipo de la OF #{of_ref} ({cliente})",
+                    'orden_fabricacion', of_ref,
+                )
+            else:
+                emit_event(
+                    'administracion', 'comercial', 'anticipo_rechazado',
+                    f"Administración rechazó el anticipo de la OF #{of_ref} ({cliente})",
+                    'orden_fabricacion', of_ref,
+                )
+
         return Response({
             "message": f"Anticipo {pk} {'validado' if pagado else 'rechazado'}",
             "data": {
@@ -104,6 +120,13 @@ class AdministracionViewSet(viewsets.ViewSet):
         if comprobante:
             despacho.comprobante_saldo = comprobante
         despacho.save()
+
+        emit_event(
+            'administracion', 'logistica',
+            'despacho_autorizado' if aprobado else 'despacho_rechazado',
+            f"Administración {'autorizó' if aprobado else 'rechazó'} el despacho #{despacho.id}",
+            'despacho', despacho.id,
+        )
 
         return Response({
             "message": f"Despacho {pk} {'autorizado' if aprobado else 'rechazado'}",

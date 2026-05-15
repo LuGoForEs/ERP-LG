@@ -6,6 +6,7 @@ from drf_spectacular.utils import extend_schema
 from .models import Despacho
 from produccion.models import Lote
 from .serializers import DespachoSerializer
+from notificaciones.events import emit_event
 
 class LogisticaViewSet(viewsets.ViewSet):
 
@@ -53,6 +54,12 @@ class LogisticaViewSet(viewsets.ViewSet):
         despacho.estado = "esperando_autorizacion"
         despacho.save()
 
+        emit_event(
+            'logistica', 'administracion', 'despacho_espera_autorizacion',
+            f"Logística solicitó autorización para el despacho #{despacho.id}",
+            'despacho', despacho.id,
+        )
+
         return Response({
             "message": f"Autorización solicitada para despacho {pk}",
             "data": DespachoSerializer(despacho).data,
@@ -74,5 +81,11 @@ class LogisticaViewSet(viewsets.ViewSet):
 
         despacho.estado = "ejecutado"
         despacho.save()
+
+        emit_event(
+            'logistica', ['comercial', 'produccion'], 'despacho_ejecutado',
+            f"Logística ejecutó el despacho #{despacho.id}",
+            'despacho', despacho.id,
+        )
 
         return Response({"message": f"Despacho {pk} ejecutado", "data": DespachoSerializer(despacho).data})

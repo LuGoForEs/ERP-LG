@@ -10,6 +10,7 @@ from compras.models import FacturaCompra
 from panol.models import Ingreso, Movimiento
 from produccion.models import Lote
 from logistica.models import Despacho
+from notificaciones.events import emit_event
 
 def _fue_modificado(created, updated) -> bool:
     if created is None or updated is None:
@@ -60,6 +61,12 @@ class OrdenFabricacionViewSet(viewsets.ModelViewSet):
             monto_estimado=orden.monto_anticipo,
             estado='pendiente',
             pagado=False
+        )
+
+        emit_event(
+            'comercial', 'administracion', 'of_creada',
+            f"Nueva OF #{orden.id} de {orden.cliente} — anticipo pendiente de validación",
+            'orden_fabricacion', orden.id,
         )
 
         return Response({

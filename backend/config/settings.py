@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'panol.apps.PanolConfig',
     'produccion.apps.ProduccionConfig',
     'logistica.apps.LogisticaConfig',
+    'notificaciones.apps.NotificacionesConfig',
 ]
 
 MIDDLEWARE = [
@@ -179,8 +180,9 @@ FRONTEND_URL        = config('FRONTEND_URL', default='http://localhost:3000')
 # Celery
 from celery.schedules import crontab  # noqa: E402
 
-CELERY_BROKER_URL = config('REDIS_URL', default='redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://localhost:6379/0')
+REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TIMEZONE = 'America/Argentina/Buenos_Aires'
 CELERY_ENABLE_UTC = True
 CELERY_BEAT_SCHEDULE = {

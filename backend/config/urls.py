@@ -20,4 +20,7 @@ urlpatterns = [
     path('api/v1/panol/', include('panol.urls')),
     path('api/v1/produccion/', include('produccion.urls')),
     path('api/v1/logistica/', include('logistica.urls')),
+
+    # Server-Sent Events (push cross-nodo)
+    path('api/v1/events/', include('notificaciones.urls')),
 ]

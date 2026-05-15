@@ -13,6 +13,7 @@ pytest-django>=4.8
 factory-boy>=3.3
 ruff>=0.5
 gunicorn>=22.0
+gevent>=24.2
 whitenoise>=6.7
 pyotp>=2.9
 qrcode[pil]>=7.4

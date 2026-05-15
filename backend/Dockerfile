@@ -16,4 +16,4 @@ COPY . .
 
 RUN python manage.py collectstatic --noinput
 
-CMD ["gunicorn", "--workers", "3", "--bind", "0.0.0.0:8000", "config.wsgi:application"]
+CMD ["gunicorn", "--worker-class", "gevent", "--workers", "3", "--worker-connections", "1000", "--timeout", "120", "--bind", "0.0.0.0:8000", "config.wsgi:application"]

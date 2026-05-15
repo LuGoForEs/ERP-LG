@@ -1,8 +1,9 @@
 import React from 'react';
-import { ToastProvider, Sidebar, ShortcutsDialog, useGlobalShortcuts } from './components/primitives';
+import { ToastProvider, Sidebar, ShortcutsDialog, useGlobalShortcuts, SidebarToggleProvider } from './components/primitives';
 import { ArticulosProvider } from './contexts/ArticulosContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PermissionsProvider, usePermissions } from './contexts/PermissionsContext';
+import { NotificationsProvider } from './contexts/NotificationsContext';
 import LoginPage from './components/LoginPage';
 import TwoFASetupDialog from './components/TwoFASetupDialog';
 import ActivationPage from './components/ActivationPage';
@@ -38,7 +39,11 @@ function AppInner() {
   const [showShortcuts, setShowShortcuts] = React.useState(false);
   const [newSignal, setNewSignal] = React.useState(0);
   const [show2FA, setShow2FA] = React.useState(false);
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [currentUser, setCurrentUser] = React.useState(user);
+
+  const openSidebar = React.useCallback(() => setSidebarOpen(true), []);
+  const closeSidebar = React.useCallback(() => setSidebarOpen(false), []);
 
   React.useEffect(() => { setCurrentUser(user); }, [user]);
 
@@ -86,7 +91,8 @@ function AppInner() {
 
   return (
     <ArticulosProvider>
-      <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
+      <SidebarToggleProvider value={openSidebar}>
+      <div className="flex min-h-screen min-h-[100dvh] bg-zinc-950 text-zinc-100">
         <Sidebar
           active={active}
           onSelect={setActive}
@@ -95,8 +101,10 @@ function AppInner() {
           onLogout={logout}
           on2FASetup={() => setShow2FA(true)}
           allowedPanels={allowedPanels}
+          mobileOpen={sidebarOpen}
+          onClose={closeSidebar}
         />
-        <main className="flex-1 min-w-0 max-h-screen overflow-y-auto">
+        <main className="flex-1 min-w-0 max-h-screen max-h-[100dvh] overflow-y-auto">
           <Panel openNewSignal={newSignal} />
         </main>
         <ShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} allowedPanels={allowedPanels} />
@@ -107,6 +115,7 @@ function AppInner() {
           onUpdated={handleUpdated2FA}
         />
       </div>
+      </SidebarToggleProvider>
     </ArticulosProvider>
   );
 }
@@ -116,7 +125,9 @@ export default function App() {
     <AuthProvider>
       <PermissionsProvider>
         <ToastProvider>
-          <AppInner />
+          <NotificationsProvider>
+            <AppInner />
+          </NotificationsProvider>
         </ToastProvider>
       </PermissionsProvider>
     </AuthProvider>

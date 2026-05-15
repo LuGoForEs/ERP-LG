@@ -6,6 +6,36 @@ export function cx(...args) {
   return args.filter(Boolean).join(' ');
 }
 
+// ─── RESPONSIVE ───────────────────────────────────────────────────────────────
+export function useMediaQuery(query) {
+  const get = () => typeof window !== 'undefined' && window.matchMedia(query).matches;
+  const [matches, setMatches] = React.useState(get);
+  React.useEffect(() => {
+    const mql = window.matchMedia(query);
+    const handler = () => setMatches(mql.matches);
+    handler();
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [query]);
+  return matches;
+}
+
+// true en tablet/móvil (< lg = 1024px) — usado para drawer + hamburguesa
+export const useIsMobile = () => useMediaQuery('(max-width: 1023px)');
+// true solo en teléfono (< md = 768px) — layout de columna única / detalle full-screen
+export const useIsPhone  = () => useMediaQuery('(max-width: 767px)');
+// true en dispositivos sin puntero fino (touch) — atajos de teclado inútiles
+export const useIsTouch  = () => useMediaQuery('(pointer: coarse)');
+
+// Permite que ModuleHeader abra el drawer sin prop-drilling por los 9 paneles
+const SidebarToggleContext = React.createContext(null);
+export function SidebarToggleProvider({ value, children }) {
+  return <SidebarToggleContext.Provider value={value}>{children}</SidebarToggleContext.Provider>;
+}
+export function useSidebarToggle() {
+  return React.useContext(SidebarToggleContext);
+}
+
 // ─── ICON ─────────────────────────────────────────────────────────────────────
 export function Icon({ name, size = 16, className = '', strokeWidth = 1.75 }) {
   const paths = {
@@ -18,6 +48,8 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75 }) {
     'truck':       <><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></>,
     'plus':        <><path d="M5 12h14"/><path d="M12 5v14"/></>,
     'x':           <><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>,
+    'menu':        <><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/></>,
+    'arrow-left':  <><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></>,
     'check':       <><path d="M20 6 9 17l-5-5"/></>,
     'check-circle':<><path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/></>,
     'alert':       <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></>,
@@ -203,7 +235,7 @@ export function EstadoBadge({ estado }) {
 // ─── CARD ─────────────────────────────────────────────────────────────────────
 export function Card({ children, className = '', ...props }) {
   return (
-    <div {...props} className={cx('rounded-lg border border-zinc-800 bg-zinc-900/40 backdrop-blur-sm', className)}>
+    <div {...props} className={cx('rounded-lg border border-zinc-800 bg-zinc-900/40 backdrop-blur-sm overflow-hidden', className)}>
       {children}
     </div>
   );
@@ -211,18 +243,18 @@ export function Card({ children, className = '', ...props }) {
 
 export function CardHeader({ children, className = '', actions }) {
   return (
-    <div className={cx('flex items-center justify-between px-4 py-3 border-b border-zinc-800', className)}>
-      <div className="flex items-center gap-2">{children}</div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+    <div className={cx('flex items-center justify-between gap-2 px-4 py-3 border-b border-zinc-800', className)}>
+      <div className="flex items-center gap-2 min-w-0">{children}</div>
+      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </div>
   );
 }
 
 export function CardTitle({ children, hint }) {
   return (
-    <div className="flex items-baseline gap-2">
-      <h3 className="font-mono text-[10px] uppercase tracking-[0.1em] text-zinc-500 font-semibold">{children}</h3>
-      {hint != null && <span className="font-mono text-[11px] text-zinc-600">{hint}</span>}
+    <div className="flex items-baseline gap-2 min-w-0">
+      <h3 className="font-mono text-[10px] uppercase tracking-[0.1em] text-zinc-500 font-semibold truncate">{children}</h3>
+      {hint != null && <span className="font-mono text-[11px] text-zinc-600 shrink-0">{hint}</span>}
     </div>
   );
 }
@@ -280,13 +312,13 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={push}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      <div className="fixed bottom-4 inset-x-3 sm:inset-x-auto sm:right-4 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map(t => (
           <div
             key={t.id}
             role="status"
             className={cx(
-              'pointer-events-auto min-w-[260px] max-w-sm rounded-lg border bg-zinc-900 backdrop-blur-md',
+              'pointer-events-auto w-full sm:w-auto sm:min-w-[260px] sm:max-w-sm rounded-lg border bg-zinc-900 backdrop-blur-md',
               'shadow-lg flex items-center gap-3 px-3.5 py-3 animate-in slide-in-from-right',
               t.type === 'success' && 'border-emerald-500/40 border-l-4 border-l-emerald-500',
               t.type === 'error'   && 'border-rose-500/40 border-l-4 border-l-rose-500',
@@ -302,8 +334,8 @@ export function ToastProvider({ children }) {
               <Icon name={t.type === 'success' ? 'check' : t.type === 'error' ? 'x' : 'circle-dot'} size={12} strokeWidth={3} />
             </span>
             <p className="text-sm text-zinc-100 flex-1">{t.msg}</p>
-            <button onClick={() => dismiss(t.id)} className="text-zinc-500 hover:text-zinc-200 -mr-1 p-1">
-              <Icon name="x" size={14} />
+            <button onClick={() => dismiss(t.id)} className="shrink-0 grid place-items-center w-9 h-9 -mr-2 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800">
+              <Icon name="x" size={16} />
             </button>
           </div>
         ))}
@@ -327,25 +359,25 @@ export function Dialog({ open, onClose, title, children, size = 'md' }) {
 
   if (!open) return null;
 
-  const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
+  const sizes = { sm: 'sm:max-w-sm', md: 'sm:max-w-lg', lg: 'sm:max-w-2xl', xl: 'sm:max-w-4xl' };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in" onClick={onClose} />
       <div className={cx(
-        'relative w-full bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl',
-        'animate-in zoom-in-95',
+        'relative w-full bg-zinc-900 border-0 sm:border border-zinc-800 rounded-none sm:rounded-lg shadow-2xl',
+        'animate-in zoom-in-95 flex flex-col max-h-full sm:max-h-[90vh]',
         sizes[size],
       )}>
         {title && (
-          <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
             <h2 className="font-semibold text-zinc-100">{title}</h2>
-            <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 p-1 -mr-1 rounded hover:bg-zinc-800">
-              <Icon name="x" size={16} />
+            <button onClick={onClose} className="shrink-0 grid place-items-center w-10 h-10 -mr-2 text-zinc-500 hover:text-zinc-200 rounded hover:bg-zinc-800">
+              <Icon name="x" size={18} />
             </button>
           </div>
         )}
-        <div>{children}</div>
+        <div className="overflow-y-auto">{children}</div>
       </div>
     </div>
   );
@@ -354,7 +386,7 @@ export function Dialog({ open, onClose, title, children, size = 'md' }) {
 // ─── TABS ─────────────────────────────────────────────────────────────────────
 export function Tabs({ value, onChange, items, accent = 'cyan', className = '' }) {
   return (
-    <div className={cx('inline-flex bg-zinc-900 border border-zinc-800 rounded-lg p-1', className)} role="tablist">
+    <div className={cx('inline-flex max-w-full overflow-x-auto bg-zinc-900 border border-zinc-800 rounded-lg p-1', className)} role="tablist">
       {items.map(t => {
         const active = value === t.value;
         return (
@@ -364,7 +396,7 @@ export function Tabs({ value, onChange, items, accent = 'cyan', className = '' }
             aria-selected={active}
             onClick={() => onChange(t.value)}
             className={cx(
-              'px-3.5 h-7 text-xs font-medium rounded-md transition-all',
+              'px-3.5 h-7 text-xs font-medium rounded-md transition-all whitespace-nowrap shrink-0',
               active
                 ? `bg-${accent}-500/15 text-${accent}-300 shadow-sm`
                 : 'text-zinc-500 hover:text-zinc-300',
@@ -385,6 +417,8 @@ export function Tabs({ value, onChange, items, accent = 'cyan', className = '' }
 
 // ─── KBD ──────────────────────────────────────────────────────────────────────
 export function Kbd({ children }) {
+  const isTouch = useIsTouch();
+  if (isTouch) return null;
   return (
     <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded border border-zinc-800 bg-zinc-900 font-mono text-[10px] text-zinc-400 shadow-[0_2px_0_0_rgb(15_23_42)]">
       {children}
@@ -437,6 +471,52 @@ export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin r
   };
 
   const cellPad = density === 'compact' ? 'px-2.5 py-1.5' : 'px-3 py-2.5';
+
+  // Tarjetas solo en teléfono (<768). En tablet+ el layout es de 2 paneles
+  // con espacio suficiente para la tabla real.
+  const isPhone = useIsPhone();
+
+  if (isPhone) {
+    if (sorted.length === 0) {
+      return <div className="py-10 text-center text-zinc-500 text-sm italic">{emptyMsg}</div>;
+    }
+    return (
+      <div className="flex flex-col gap-2 p-3">
+        {sorted.map((row, idx) => (
+          <div key={row.id ?? idx}>
+            <div
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              className={cx(
+                'rounded-lg border p-3 flex flex-col gap-1.5 transition-colors',
+                onRowClick && 'cursor-pointer active:bg-zinc-800/60',
+                row.id === selectedId
+                  ? 'border-orange-500/60 bg-orange-500/10'
+                  : 'border-zinc-800 bg-zinc-900/40',
+              )}
+            >
+              {columns.map(c => {
+                const val = c.cell ? c.cell(row) : (c.accessor ? c.accessor(row) : row[c.key]);
+                if (val == null || val === '') return null;
+                return (
+                  <div key={c.key} className="flex items-start justify-between gap-3 text-sm">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-zinc-500 shrink-0 pt-0.5">
+                      {c.label}
+                    </span>
+                    <span className={cx('text-zinc-300 text-right min-w-0 break-words', c.mono && 'font-mono text-xs')}>
+                      {val}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {renderExpanded && row.id === selectedId && (
+              <div className="mt-1">{renderExpanded(row)}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto">
@@ -509,8 +589,63 @@ export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin r
   );
 }
 
+// ─── MASTER-DETAIL ────────────────────────────────────────────────────────────
+// Tablet/Desktop (md+ = 768px): lista y detalle lado a lado (2 paneles).
+// Teléfono (<md = 768px):
+//   - stack=false (default): muestra la lista; al haber selección el detalle
+//     ocupa toda la pantalla con una barra "volver" que llama onBack.
+//   - stack=true: lista y panel lateral apilados verticalmente (ambos siempre
+//     accesibles) — para layouts lista + formulario permanente.
+export function MasterDetail({
+  list, detail, hasSelection, onBack,
+  listWidth = '340px', listSide = 'left', backLabel = 'Volver', stack = false,
+}) {
+  const isPhone = useIsPhone();
+
+  if (isPhone) {
+    if (stack) {
+      return (
+        <div className="flex flex-col gap-4 p-3">
+          <div>{list}</div>
+          <div>{detail}</div>
+        </div>
+      );
+    }
+    if (hasSelection) {
+      return (
+        <div className="flex flex-col">
+          <button
+            onClick={onBack}
+            className="sticky top-0 z-10 flex items-center gap-2 px-4 py-3 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/60 text-sm text-zinc-300 hover:text-zinc-100"
+          >
+            <Icon name="arrow-left" size={16} />
+            {backLabel}
+          </button>
+          <div className="p-3">{detail}</div>
+        </div>
+      );
+    }
+    return <div className="p-3">{list}</div>;
+  }
+
+  const cols = listSide === 'right'
+    ? `minmax(0,1fr) ${listWidth}`
+    : `${listWidth} minmax(0,1fr)`;
+  const first  = listSide === 'right' ? detail : list;
+  const second = listSide === 'right' ? list : detail;
+
+  return (
+    <div className="grid gap-4 items-start" style={{ gridTemplateColumns: cols }}>
+      <div className="min-w-0">{first}</div>
+      <div className="min-w-0">{second}</div>
+    </div>
+  );
+}
+
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASetup, allowedPanels }) {
+export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASetup, allowedPanels, mobileOpen = false, onClose }) {
+  const handleSelect = (id) => { onSelect(id); onClose?.(); };
+  const isTouch = useIsTouch();
   const activeClasses = {
     blue:    'bg-blue-500/10 border-blue-500 text-zinc-100 font-medium',
     violet:  'bg-violet-500/10 border-violet-500 text-zinc-100 font-medium',
@@ -531,16 +666,36 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
     : V2_MODULES;
 
   return (
-    <aside className="w-[228px] shrink-0 h-screen sticky top-0 bg-zinc-950 border-r border-zinc-800/60 flex flex-col">
+    <>
+      {mobileOpen && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          aria-hidden="true"
+        />
+      )}
+      <aside className={cx(
+        'w-[228px] shrink-0 bg-zinc-950 border-r border-zinc-800/60 flex flex-col',
+        'fixed inset-y-0 left-0 z-50 h-screen h-[100dvh] transform transition-transform duration-200',
+        'lg:static lg:translate-x-0 lg:sticky lg:top-0',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+      )}>
       <div className="px-5 pt-5 pb-4 border-b border-zinc-800/60">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded bg-gradient-to-br from-zinc-800 to-zinc-950 border border-zinc-800 grid place-items-center">
             <span className="font-mono text-xs font-bold text-zinc-200">L</span>
           </div>
-          <div>
+          <div className="flex-1">
             <div className="font-mono text-sm font-bold text-zinc-100 tracking-tight leading-none">ERP—LG</div>
             <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-zinc-600 mt-1">Sistema industrial</div>
           </div>
+          <button
+            onClick={onClose}
+            className="lg:hidden grid place-items-center w-10 h-10 -mr-2 text-zinc-500 hover:text-zinc-200"
+            aria-label="Cerrar menú"
+          >
+            <Icon name="x" size={18} />
+          </button>
         </div>
       </div>
 
@@ -551,7 +706,7 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
           return (
             <button
               key={m.id}
-              onClick={() => onSelect(m.id)}
+              onClick={() => handleSelect(m.id)}
               aria-current={isActive ? 'page' : undefined}
               className={cx(
                 'w-full flex items-center gap-3 px-4 py-2 text-sm transition-all border-l-2',
@@ -571,6 +726,7 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
       </nav>
 
       <div className="border-t border-zinc-800/60 p-3 space-y-1">
+        {!isTouch && (
         <button
           onClick={onShortcuts}
           className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 transition-colors"
@@ -579,6 +735,7 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
           <span className="flex-1 text-left">Atajos</span>
           <Kbd>?</Kbd>
         </button>
+        )}
 
         {user && (
           <>
@@ -625,31 +782,42 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
           </span>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
 // ─── MODULE HEADER ────────────────────────────────────────────────────────────
 export function ModuleHeader({ module, subtitle, actions }) {
   const mod = V2_MODULES.find(m => m.id === module) || {};
+  const openSidebar = useSidebarToggle();
   const accentText = {
     blue: 'text-blue-400', violet: 'text-violet-400', cyan: 'text-cyan-400',
     amber: 'text-amber-400', emerald: 'text-emerald-400', rose: 'text-rose-400', orange: 'text-orange-400',
   };
   return (
     <header className={cx(
-      'sticky top-0 z-20 px-7 py-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/60',
-      'flex items-center justify-between',
+      'sticky top-0 z-20 px-4 sm:px-7 py-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/60',
+      'flex items-center justify-between gap-3',
     )}>
-      <div className="flex items-center gap-3">
-        <span className={accentText[mod.accent] || 'text-zinc-400'}>
+      <div className="flex items-center gap-3 min-w-0">
+        {openSidebar && (
+          <button
+            onClick={openSidebar}
+            className="lg:hidden shrink-0 grid place-items-center w-10 h-10 -ml-2 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900"
+            aria-label="Abrir menú"
+          >
+            <Icon name="menu" size={20} />
+          </button>
+        )}
+        <span className={cx('shrink-0', accentText[mod.accent] || 'text-zinc-400')}>
           <Icon name={V2_MODULE_ICONS[module]} size={18} />
         </span>
-        <div>
+        <div className="min-w-0">
           <h1 className={cx('font-mono text-xs uppercase tracking-[0.12em] font-semibold leading-none', accentText[mod.accent] || 'text-zinc-400')}>
             {mod.name}
           </h1>
-          {subtitle && <p className="text-xs text-zinc-500 mt-1">{subtitle}</p>}
+          {subtitle && <p className="text-xs text-zinc-500 mt-1 truncate">{subtitle}</p>}
         </div>
       </div>
       {actions}

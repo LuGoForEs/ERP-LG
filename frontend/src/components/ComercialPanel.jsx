@@ -4,9 +4,10 @@ import {
   cx, Icon, Button, Input, Textarea, Select, Field,
   Badge, EstadoBadge, Card, CardHeader, CardTitle,
   Metric, useToast, Dialog, Tabs, Kbd, useSearchShortcut,
-  SectionLabel, EmptyState, ModuleHeader,
+  SectionLabel, EmptyState, ModuleHeader, MasterDetail,
 } from './primitives';
 import { usePermissions } from '../contexts/PermissionsContext';
+import { useNodeEvents } from '../contexts/NotificationsContext';
 
 export default function ComercialPanel({ openNewSignal }) {
   const { isReadonly } = usePermissions();
@@ -36,6 +37,7 @@ export default function ComercialPanel({ openNewSignal }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => { load(); }, [load]);
+  useNodeEvents('comercial', load);
   React.useEffect(() => { if (openNewSignal) setDialogOpen(true); }, [openNewSignal]);
 
   const pendientes  = ofs.filter(o => o.estado === 'pendiente_anticipo');
@@ -97,7 +99,7 @@ export default function ComercialPanel({ openNewSignal }) {
   if (loading) return (
     <div>
       <ModuleHeader module="comercial" subtitle="Cargando..." />
-      <div className="px-7 py-10 text-zinc-500 text-sm">Cargando órdenes...</div>
+      <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando órdenes...</div>
     </div>
   );
 
@@ -117,7 +119,7 @@ export default function ComercialPanel({ openNewSignal }) {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar..."
-                className="h-8 pl-8 pr-12 w-56 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+                className="h-8 pl-8 pr-12 w-32 sm:w-56 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
               />
               <span className="absolute right-2 top-1/2 -translate-y-1/2"><Kbd>/</Kbd></span>
             </div>
@@ -126,7 +128,7 @@ export default function ComercialPanel({ openNewSignal }) {
         }
       />
 
-      <div className="px-7 pt-5 grid grid-cols-4 gap-3">
+      <div className="px-4 sm:px-7 pt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
         <Metric label="Total OFs" value={ofs.length} icon="briefcase" accent="blue" />
         <Metric label="Pend. anticipo" value={pendientes.length} sub="En espera de aprobación" icon="alert" accent="amber" />
         <Metric label="Aprobadas" value={aprobadas.length} sub="En producción" icon="check-circle" accent="emerald" />
@@ -137,7 +139,13 @@ export default function ComercialPanel({ openNewSignal }) {
           onClick={ciclicMoneda} />
       </div>
 
-      <div className="px-7 py-5 grid grid-cols-[340px_1fr] gap-4 items-start">
+      <div className="px-4 sm:px-7 py-5">
+       <MasterDetail
+        listWidth="340px"
+        hasSelection={!!selected}
+        onBack={() => setSelected(null)}
+        backLabel="Órdenes"
+        list={
         <Card>
           <CardHeader>
             <CardTitle hint={`${filtered.length}`}>Órdenes</CardTitle>
@@ -150,7 +158,7 @@ export default function ComercialPanel({ openNewSignal }) {
               { value: 'rechazadas', label: 'Rech.', count: rechazadas.length },
             ]} />
           </div>
-          <div className="max-h-[560px] overflow-y-auto">
+          <div className="max-h-[60vh] lg:max-h-[560px] overflow-y-auto">
             {filtered.length === 0 ? <EmptyState icon="briefcase" msg="Sin resultados" hint="Probá ajustar el filtro" /> :
               filtered.map(o => (
                 <button
@@ -179,18 +187,19 @@ export default function ComercialPanel({ openNewSignal }) {
             }
           </div>
         </Card>
-
+        }
+        detail={
         <Card>
           {!selected ? (
             <EmptyState icon="briefcase" msg="Seleccioná una OF" hint={<>O presioná <Kbd>N</Kbd> para crear una nueva</>} />
           ) : (
             <>
               <CardHeader actions={<EstadoBadge estado={selected.estado} />}>
-                <h2 className="font-mono text-base font-bold text-zinc-100">OF-{selected.id}</h2>
-                <span className="text-sm text-zinc-500">{selected.cliente}</span>
+                <h2 className="font-mono text-base font-bold text-zinc-100 shrink-0">OF-{selected.id}</h2>
+                <span className="text-sm text-zinc-500 truncate">{selected.cliente}</span>
               </CardHeader>
               <div className="p-5 space-y-5">
-                <div className="grid grid-cols-3 gap-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
                   <div>
                     <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Plazo de entrega</p>
                     <p className="text-sm text-zinc-200 font-mono">{selected.plazo_entrega}</p>
@@ -206,7 +215,7 @@ export default function ComercialPanel({ openNewSignal }) {
                     <p className="text-sm text-zinc-200 font-mono">{selected.plazo_anticipo_dias ?? 7} días</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Responsable</p>
                     <p className="text-sm text-zinc-200">{selected.responsable_nombre ?? '—'}</p>
@@ -258,6 +267,8 @@ export default function ComercialPanel({ openNewSignal }) {
             </>
           )}
         </Card>
+        }
+       />
       </div>
 
       <Dialog open={dialogOpen} onClose={() => { setDialogOpen(false); setErrors({}); }} title="Nueva Orden de Fabricación" size="lg">
@@ -268,7 +279,7 @@ export default function ComercialPanel({ openNewSignal }) {
           <Field label="Descripción del trabajo" required error={errors.descripcion}>
             <Textarea rows={3} value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Detalle de lo que se fabricará..." error={errors.descripcion} />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Plazo de entrega" required error={errors.plazo_valor}>
               <div className="flex gap-2">
                 <Input type="number" value={form.plazo_valor} onChange={e => setForm({ ...form, plazo_valor: e.target.value })} placeholder="30" error={errors.plazo_valor} />

@@ -4,9 +4,10 @@ import {
   cx, Icon, Button, Input, Field, Select,
   EstadoBadge, Card, CardHeader, CardTitle,
   Metric, useToast, useSearchShortcut,
-  DataTable, ModuleHeader, EmptyState,
+  DataTable, ModuleHeader, EmptyState, MasterDetail,
 } from './primitives';
 import { usePermissions } from '../contexts/PermissionsContext';
+import { useNodeEvents } from '../contexts/NotificationsContext';
 
 function DespachoDetalle({ despacho, onClose, onAccion, readonly }) {
   const Field2 = ({ label, children, full }) => (
@@ -33,7 +34,7 @@ function DespachoDetalle({ despacho, onClose, onAccion, readonly }) {
       </div>
 
       {/* Info grid */}
-      <div className="px-4 pb-4 grid grid-cols-2 gap-x-6 gap-y-3.5">
+      <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5">
         <Field2 label="Lote">
           <span className="font-mono text-orange-400">Lote-{despacho.lote_id}</span>
         </Field2>
@@ -142,6 +143,7 @@ export default function LogisticaPanel({ openNewSignal }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => { load(); }, [load]);
+  useNodeEvents('logistica', load);
 
   // Sync selected con datos frescos tras cada recarga
   React.useEffect(() => {
@@ -251,7 +253,7 @@ export default function LogisticaPanel({ openNewSignal }) {
   if (loading) return (
     <div>
       <ModuleHeader module="logistica" subtitle="Cargando..." />
-      <div className="px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
+      <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
     </div>
   );
 
@@ -267,19 +269,27 @@ export default function LogisticaPanel({ openNewSignal }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar despacho..."
-            className="h-8 pl-8 pr-3 w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500"
+            className="h-8 pl-8 pr-3 w-32 sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500"
           />
         </div>
       } />
 
-      <div className="px-7 pt-5 grid grid-cols-4 gap-3">
+      <div className="px-4 sm:px-7 pt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
         <Metric label="Pendientes" value={pendientes.length} icon="alert" accent="amber" />
         <Metric label="En revisión admin" value={esperandoAuth.length} icon="alert" accent="violet" />
         <Metric label="Autorizados" value={autorizados.length} icon="check-circle" accent="emerald" />
         <Metric label="Ejecutados" value={ejecutados.length} icon="truck" accent="orange" />
       </div>
 
-      <div className="px-7 py-5 grid grid-cols-[1fr_300px] gap-4 items-start">
+      <div className="px-4 sm:px-7 py-5">
+       <MasterDetail
+        listWidth="300px"
+        listSide="right"
+        stack
+        hasSelection={false}
+        onBack={() => setSelected(null)}
+        backLabel="Despachos"
+        list={
         <div className="space-y-3">
           <Card>
             <CardHeader>
@@ -326,7 +336,8 @@ export default function LogisticaPanel({ openNewSignal }) {
             </Card>
           )}
         </div>
-
+        }
+        detail={
         <Card className="sticky top-[88px]">
           <CardHeader><CardTitle>Nuevo despacho</CardTitle></CardHeader>
           <div className="p-4 space-y-3">
@@ -373,6 +384,8 @@ export default function LogisticaPanel({ openNewSignal }) {
             )}
           </div>
         </Card>
+        }
+       />
       </div>
     </div>
   );

@@ -1,11 +1,12 @@
 import React from 'react';
 import { api } from '../api';
 import { usePermissions } from '../contexts/PermissionsContext';
+import { useNodeEvents } from '../contexts/NotificationsContext';
 import {
   cx, Icon, Button, Input, Field, Select,
   EstadoBadge, Badge, Card, CardHeader, CardTitle,
   Metric, useToast, Tabs, useSearchShortcut,
-  EmptyState, DataTable, ModuleHeader,
+  EmptyState, DataTable, ModuleHeader, MasterDetail,
 } from './primitives';
 
 const V2_EMPTY_ITEM = { cantidad: '', unidad: 'u', descripcion: '', uso_en: '', observaciones: '' };
@@ -62,6 +63,7 @@ export default function DesarrolloPanel({ openNewSignal }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => { load(); }, [load]);
+  useNodeEvents('desarrollo', load);
   React.useEffect(() => {
     if (openNewSignal && ofsAprobadas[0]) handleSelect(ofsAprobadas[0]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,7 +140,7 @@ export default function DesarrolloPanel({ openNewSignal }) {
   if (loading) return (
     <div>
       <ModuleHeader module="desarrollo" subtitle="Cargando..." />
-      <div className="px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
+      <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
     </div>
   );
 
@@ -154,19 +156,26 @@ export default function DesarrolloPanel({ openNewSignal }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar OF..."
-            className="h-8 pl-8 pr-3 w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500"
+            className="h-8 pl-8 pr-3 w-32 sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500"
           />
         </div>
       } />
 
-      <div className="px-7 pt-5 grid grid-cols-4 gap-3">
+      <div className="px-4 sm:px-7 pt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
         <Metric label="OFs disponibles" value={ofsAprobadas.length} icon="briefcase" accent="cyan" />
         <Metric label="PMs generados" value={pms.length} icon="file-text" accent="blue" />
         <Metric label="Planos enviados" value={planos.filter(p => p.estado === 'enviado').length} icon="upload" accent="violet" />
         <Metric label="Items totales" value={pms.reduce((a,p) => a + (p.items?.length || 0), 0)} sub="Solicitados en PMs" icon="package" accent="cyan" />
       </div>
 
-      <div className="px-7 py-5 grid grid-cols-[280px_1fr] gap-4 items-start">
+      <div className="px-4 sm:px-7 py-5">
+       <MasterDetail
+        listWidth="280px"
+        listSide="left"
+        hasSelection={!!selected}
+        onBack={() => setSelected(null)}
+        backLabel="OFs"
+        list={
         <Card>
           <CardHeader><CardTitle hint={ofsVisibles.length}>OFs aprobadas</CardTitle></CardHeader>
           {ofsVisibles.length === 0 ? <EmptyState icon="alert" msg={search ? 'Sin resultados' : 'Sin OFs aprobadas'} hint={search ? 'Probá otro término' : 'Administración debe validar anticipos'} /> :
@@ -189,7 +198,8 @@ export default function DesarrolloPanel({ openNewSignal }) {
             ))
           }
         </Card>
-
+        }
+        detail={
         <div className="space-y-3">
           {!selected ? (
             <Card><EmptyState icon="compass" msg="Seleccioná una OF aprobada" hint="Para crear PM o PP" /></Card>
@@ -226,15 +236,15 @@ export default function DesarrolloPanel({ openNewSignal }) {
                 <Card>
                   <CardHeader><CardTitle>Nuevo Pedido de Material</CardTitle></CardHeader>
                   <div className="p-5 space-y-4">
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <Field label="Emisor" required><Input value={pmForm.emisor} onChange={e => setPmForm({...pmForm, emisor: e.target.value})} placeholder="Nombre..." /></Field>
                       <Field label="Fecha"><Input type="date" value={pmForm.fecha} onChange={e => setPmForm({...pmForm, fecha: e.target.value})} /></Field>
                       <Field label="Plazo entrega"><Input type="date" value={pmForm.plazo_entrega} onChange={e => setPmForm({...pmForm, plazo_entrega: e.target.value})} /></Field>
                       <Field label="Equipo"><Input value={pmForm.equipo} onChange={e => setPmForm({...pmForm, equipo: e.target.value})} placeholder="Tanque 5000L" /></Field>
                     </div>
 
-                    <div className="border border-zinc-800 rounded-md overflow-hidden">
-                      <table className="w-full text-sm">
+                    <div className="border border-zinc-800 rounded-md overflow-x-auto">
+                      <table className="w-full min-w-[560px] text-sm">
                         <thead className="bg-zinc-900/60 border-b border-zinc-800">
                           <tr>
                             {['#','Cant.','Ud.','Descripción *','Uso en','Observaciones',''].map((h, i) => (
@@ -348,19 +358,19 @@ export default function DesarrolloPanel({ openNewSignal }) {
                 <Card>
                   <CardHeader><CardTitle hint={planosOf.length}>Planos de esta OF</CardTitle></CardHeader>
                   {planosOf.map(p => (
-                    <div key={p.id} className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/60 last:border-0">
-                      <div>
+                    <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800/60 last:border-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-mono text-xs font-bold text-zinc-200">PP-{p.id}</span>
                           <EstadoBadge estado={p.estado} />
                         </div>
-                        <div className="text-xs text-zinc-400">{p.descripcion}</div>
+                        <div className="text-xs text-zinc-400 truncate">{p.descripcion}</div>
                       </div>
                       {p.archivo && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 font-mono text-[10px] font-bold">PDF</span>
-                          <span className="text-zinc-400">{p.archivo.nombre}</span>
-                          <span className="text-zinc-600 font-mono">{((p.archivo.tamanio_bytes||0)/1024).toFixed(0)} KB</span>
+                        <div className="flex items-center gap-2 text-xs min-w-0 shrink">
+                          <span className="shrink-0 px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 font-mono text-[10px] font-bold">PDF</span>
+                          <span className="text-zinc-400 truncate max-w-[100px] sm:max-w-[200px]" title={p.archivo.nombre}>{p.archivo.nombre}</span>
+                          <span className="text-zinc-600 font-mono shrink-0">{((p.archivo.tamanio_bytes||0)/1024).toFixed(0)} KB</span>
                         </div>
                       )}
                     </div>
@@ -370,6 +380,8 @@ export default function DesarrolloPanel({ openNewSignal }) {
             </>
           )}
         </div>
+        }
+       />
       </div>
     </div>
   );

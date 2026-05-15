@@ -51,19 +51,19 @@ export default function TwoFASetupDialog({ user, open, onClose, onUpdated }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+    <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:px-4">
+      <div className="bg-zinc-900 border-0 sm:border border-zinc-800 rounded-none sm:rounded-xl w-full sm:max-w-md shadow-2xl flex flex-col max-h-full sm:max-h-[90dvh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
           <div className="flex items-center gap-2">
             <Icon name="shield" size={15} className="text-blue-400" />
             <h2 className="font-semibold text-zinc-100 text-sm">Autenticación en dos pasos (2FA)</h2>
           </div>
-          <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300">
-            <Icon name="x" size={15} />
+          <button onClick={onClose} className="grid place-items-center w-10 h-10 -mr-2 rounded text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800">
+            <Icon name="x" size={18} />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto">
           {success && (
             <div className="rounded-md bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-400">{success}</div>
           )}

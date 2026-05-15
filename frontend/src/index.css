@@ -30,3 +30,14 @@
 .zoom-in-95 { animation-name: erp-zoom-in-95;   }
 .slide-in-from-right  { animation-name: erp-slide-in-right; }
 .slide-in-from-bottom-2 { animation-name: erp-zoom-in-95;  }
+
+/* Evitar scroll horizontal accidental por overflow de hijos */
+html, body { overflow-x: hidden; }
+
+/* iOS Safari hace auto-zoom al enfocar inputs con font-size < 16px.
+   En tablet/móvil forzamos 16px sin alterar el desktop. */
+@media (max-width: 1023px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}

@@ -4,9 +4,10 @@ import {
   cx, Icon, Button, Textarea, Field,
   Badge, EstadoBadge, Card, CardHeader, CardTitle,
   Metric, useToast, Label, Tabs, useSearchShortcut,
-  SectionLabel, EmptyState, ModuleHeader,
+  SectionLabel, EmptyState, ModuleHeader, MasterDetail,
 } from './primitives';
 import { usePermissions } from '../contexts/PermissionsContext';
+import { useNodeEvents } from '../contexts/NotificationsContext';
 
 export default function AdminPanel() {
   const { isReadonly } = usePermissions();
@@ -57,6 +58,7 @@ export default function AdminPanel() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => { load(); }, [load]);
+  useNodeEvents('administracion', load);
 
   const q = search.toLowerCase();
   const matchO = (o) => !q || `OF-${o.id} ${o.cliente} ${o.descripcion}`.toLowerCase().includes(q);
@@ -164,7 +166,7 @@ export default function AdminPanel() {
   if (loading) return (
     <div>
       <ModuleHeader module="administracion" subtitle="Cargando..." />
-      <div className="px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
+      <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
     </div>
   );
 
@@ -180,19 +182,19 @@ export default function AdminPanel() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar..."
-            className="h-8 pl-8 pr-3 w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500"
+            className="h-8 pl-8 pr-3 w-32 sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500"
           />
         </div>
       } />
 
-      <div className="px-7 pt-5 grid grid-cols-4 gap-3">
+      <div className="px-4 sm:px-7 pt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
         <Metric label="Pend. validación" value={pendientes.length} icon="alert" accent="amber" />
         <Metric label="Validados" value={validadas.length} icon="check-circle" accent="emerald" />
         <Metric label="Despachos en revisión" value={despEnRevision.length} icon="truck" accent="violet" />
         <Metric label="En espera" value={montoPendFmt} sub={`Anticipos ${monedaMetrica} · clic para cambiar`} icon="wallet" accent="violet" onClick={ciclicMoneda} />
       </div>
 
-      <div className="px-7 pt-4">
+      <div className="px-4 sm:px-7 pt-4">
         <Tabs value={tab} onChange={setTab} accent="violet" items={[
           { value: 'anticipos', label: `Anticipos (${pendientes.length} pend.)` },
           { value: 'despachos', label: `Despachos (${despEnRevision.length} en revisión)` },
@@ -201,25 +203,33 @@ export default function AdminPanel() {
       </div>
 
       {tab === 'anticipos' && (
-        <div className="px-7 py-5 grid grid-cols-[320px_1fr] gap-4 items-start">
+        <div className="px-4 sm:px-7 py-5">
+         <MasterDetail
+          listWidth="320px"
+          listSide="left"
+          hasSelection={!!selected}
+          onBack={() => setSelected(null)}
+          backLabel="Anticipos"
+          list={
           <div className="space-y-3">
             <ListSection title="Pendientes" items={pendientes} />
             <ListSection title="Validados" items={validadas} />
             <ListSection title="Rechazados" items={rechazadasA} />
           </div>
-
+          }
+          detail={
           <Card>
             {!selected ? (
               <EmptyState icon="wallet" msg="Seleccioná una OF para validar su anticipo" />
             ) : (
               <>
                 <CardHeader actions={<EstadoBadge estado={selected.anticipo?.estado || 'pendiente'} />}>
-                  <span className="font-mono text-base font-bold text-zinc-100">OF-{selected.id}</span>
-                  <span className="text-sm text-zinc-500">{selected.cliente}</span>
+                  <span className="font-mono text-base font-bold text-zinc-100 shrink-0">OF-{selected.id}</span>
+                  <span className="text-sm text-zinc-500 truncate">{selected.cliente}</span>
                 </CardHeader>
 
                 <div className="p-5 space-y-5">
-                  <div className="grid grid-cols-3 gap-5 pb-5 border-b border-zinc-800">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-5 pb-5 border-b border-zinc-800">
                     <div>
                       <Label>Descripción</Label>
                       <p className="text-sm text-zinc-200">{selected.descripcion}</p>
@@ -306,11 +316,20 @@ export default function AdminPanel() {
               </>
             )}
           </Card>
+          }
+         />
         </div>
       )}
 
       {tab === 'despachos' && (
-        <div className="px-7 py-5 grid grid-cols-[320px_1fr] gap-4 items-start">
+        <div className="px-4 sm:px-7 py-5">
+         <MasterDetail
+          listWidth="320px"
+          listSide="left"
+          hasSelection={!!selectedDespacho}
+          onBack={() => setSelectedDespacho(null)}
+          backLabel="Despachos"
+          list={
           <Card className="overflow-hidden">
             <CardHeader><CardTitle hint={despEnRevision.length}>En revisión</CardTitle></CardHeader>
             <div className="max-h-[500px] overflow-y-auto">
@@ -335,7 +354,8 @@ export default function AdminPanel() {
               }
             </div>
           </Card>
-
+          }
+          detail={
           <Card>
             {!selectedDespacho ? (
               <EmptyState icon="truck" msg="Seleccioná un despacho para revisar" />
@@ -345,7 +365,7 @@ export default function AdminPanel() {
                   <span className="font-mono text-base font-bold text-zinc-100">Despacho D-{selectedDespacho.id}</span>
                 </CardHeader>
                 <div className="p-5 space-y-5">
-                  <div className="grid grid-cols-3 gap-5 pb-5 border-b border-zinc-800">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-5 pb-5 border-b border-zinc-800">
                     <div><Label>Lote</Label><p className="text-sm text-zinc-200 font-mono">Lote-{selectedDespacho.lote_id}</p></div>
                     <div><Label>Destino</Label><p className="text-sm text-zinc-200">{selectedDespacho.destino}</p></div>
                     <div><Label>Transportista</Label><p className="text-sm text-zinc-200">{selectedDespacho.transportista}</p></div>
@@ -392,11 +412,13 @@ export default function AdminPanel() {
               </>
             )}
           </Card>
+          }
+         />
         </div>
       )}
 
       {tab === 'finalizadas' && (
-        <div className="px-7 py-5 space-y-4">
+        <div className="px-4 sm:px-7 py-5 space-y-4">
           {despEjecutados.length === 0 ? (
             <Card><EmptyState icon="check-circle" msg="Sin obras finalizadas aún" /></Card>
           ) : (
@@ -418,7 +440,7 @@ export default function AdminPanel() {
                       <span className="font-mono text-xs text-zinc-500">{d.updated_at?.split('T')[0]}</span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6 mb-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 mb-4">
                       <div>
                         <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Destino</p>
                         <p className="text-sm text-zinc-300">{d.destino}</p>
@@ -435,7 +457,7 @@ export default function AdminPanel() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-zinc-800">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-zinc-800">
                       <div className="rounded-md border border-zinc-800 bg-zinc-950/50 px-3 py-2.5">
                         <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-2">
                           Comprobante de anticipo

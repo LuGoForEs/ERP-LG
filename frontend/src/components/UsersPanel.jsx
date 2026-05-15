@@ -3,7 +3,7 @@ import { api } from '../api';
 import {
   cx, Icon, Button, Input, Field, Select,
   Badge, Card, CardHeader, CardTitle,
-  useToast, Dialog, ModuleHeader, EmptyState,
+  useToast, Dialog, ModuleHeader, EmptyState, MasterDetail,
 } from './primitives';
 
 const ROLE_LABELS = {
@@ -86,7 +86,7 @@ function RolesRepeater({ roles, onChange }) {
 function UserFormFields({ form, setForm, errors = {} }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Nombre" required>
           <Input
             value={form.first_name}
@@ -293,9 +293,16 @@ export default function UsersPanel() {
       />
 
       {loading ? (
-        <div className="px-7 py-10 text-zinc-500 text-sm">Cargando usuarios...</div>
+        <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando usuarios...</div>
       ) : (
-        <div className={cx('px-7 py-5 grid gap-4', selected ? 'grid-cols-[1fr_380px]' : 'grid-cols-1')}>
+        <div className="px-4 sm:px-7 py-5">
+         <MasterDetail
+          listWidth="380px"
+          listSide="right"
+          hasSelection={!!selected}
+          onBack={() => setSelected(null)}
+          backLabel="Usuarios"
+          list={
           <Card>
             <CardHeader><CardTitle hint={users.length}>Usuarios del sistema</CardTitle></CardHeader>
             {users.length === 0 ? (
@@ -354,8 +361,9 @@ export default function UsersPanel() {
               </div>
             )}
           </Card>
-
-          {selected && editForm && (
+          }
+          detail={
+          selected && editForm && (
             <Card className="sticky top-[88px]">
               <CardHeader
                 actions={
@@ -376,7 +384,7 @@ export default function UsersPanel() {
                 </div>
               </CardHeader>
               <div className="p-4 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Field label="Nombre">
                     <Input value={editForm.first_name} onChange={e => setEditForm({ ...editForm, first_name: e.target.value })} />
                   </Field>
@@ -388,7 +396,7 @@ export default function UsersPanel() {
                   <Input value={editForm.dni} onChange={e => setEditForm({ ...editForm, dni: e.target.value })} />
                 </Field>
                 <Field label="Email">
-                  <p className="text-sm text-zinc-400 font-mono px-1">{selected.email}</p>
+                  <p className="text-sm text-zinc-400 font-mono px-1 break-all">{selected.email}</p>
                 </Field>
                 <Field label="Estado">
                   <div className="flex items-center gap-3">
@@ -456,7 +464,9 @@ export default function UsersPanel() {
                 </div>
               </div>
             </Card>
-          )}
+          )
+          }
+         />
         </div>
       )}
 

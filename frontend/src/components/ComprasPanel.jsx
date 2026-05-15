@@ -203,7 +203,7 @@ export default function ComprasPanel() {
   if (loading) return (
     <div>
       <ModuleHeader module="compras" subtitle="Cargando..." />
-      <div className="px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
+      <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
     </div>
   );
 
@@ -219,25 +219,25 @@ export default function ComprasPanel() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar PM u OC..."
-            className="h-8 pl-8 pr-3 w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500"
+            className="h-8 pl-8 pr-3 w-32 sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500"
           />
         </div>
       } />
 
-      <div className="px-7 pt-5 grid grid-cols-4 gap-3">
+      <div className="px-4 sm:px-7 pt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
         <Metric label="PMs pendientes" value={pendientes.length} icon="alert" accent="amber" />
         <Metric label="PMs procesados" value={pedidos.filter(p => p.estado !== 'generado').length} icon="check-circle" accent="emerald" />
         <Metric label="OCs registradas" value={facturas.length} icon="file-text" accent="blue" />
         <Metric label="Total compras" value={`$${(totalFacturado/1000).toFixed(0)}k`} sub="ARS acumulado" icon="wallet" accent="emerald" />
       </div>
 
-      <div className="px-7 py-5 space-y-4">
+      <div className="px-4 sm:px-7 py-5 space-y-4">
         <div>
           <SectionLabel>Pedidos de material pendientes</SectionLabel>
           {pendientes.length === 0 ? (
             <Card><EmptyState icon="check-circle" msg="Sin pedidos pendientes" /></Card>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {pendientes.map(p => (
                 <Card key={p.id} className={cx('p-4 transition-colors', selectedPm?.id === p.id && 'border-amber-500 ring-1 ring-amber-500/40')}>
                   <div className="flex items-center justify-between mb-2">

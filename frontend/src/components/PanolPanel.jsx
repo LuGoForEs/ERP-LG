@@ -4,7 +4,7 @@ import {
   cx, Icon, Button, Input, Select, Field,
   Badge, Card, CardHeader, CardTitle,
   Metric, useToast, Tabs, useSearchShortcut,
-  EmptyState, DataTable, ModuleHeader,
+  EmptyState, DataTable, ModuleHeader, MasterDetail,
 } from './primitives';
 import { useSharedArticulos, ArticuloForm, V2_EMPTY_ARTICULO, articuloIsValid } from '../contexts/ArticulosContext';
 import { usePermissions } from '../contexts/PermissionsContext';
@@ -276,20 +276,20 @@ export default function PanolPanel() {
               value={stockSearch}
               onChange={e => setStockSearch(e.target.value)}
               placeholder="Buscar material..."
-              className="h-8 pl-8 pr-3 w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+              className="h-8 pl-8 pr-3 w-32 sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
             />
           </div>
         ) : null
       } />
 
-      <div className="px-7 pt-5 grid grid-cols-4 gap-3">
+      <div className="px-4 sm:px-7 pt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
         <Metric label="Materiales en stock" value={stockRows.length} icon="package" accent="emerald" />
         <Metric label="Facturas a ingresar" value={facturasPendientes.length} sub="Pendientes de verificación" icon="alert" accent="amber" />
         <Metric label="Ingresos registrados" value={ingresos.length} icon="arrow-up" accent="emerald" />
         <Metric label="Despachos producción" value={movimientos.length} icon="arrow-down" accent="amber" />
       </div>
 
-      <div className="px-7 pt-4">
+      <div className="px-4 sm:px-7 pt-4">
         <Tabs value={tab} onChange={setTab} accent="emerald" items={[
           { value: 'stock',    label: 'Stock & movimientos' },
           { value: 'catalogo', label: `Catálogo (${articulos.length})` },
@@ -297,7 +297,15 @@ export default function PanolPanel() {
       </div>
 
       {tab === 'stock' && (
-        <div className="px-7 py-5 grid grid-cols-[1fr_340px] gap-4 items-start">
+        <div className="px-4 sm:px-7 py-5">
+         <MasterDetail
+          listWidth="340px"
+          listSide="right"
+          stack
+          hasSelection={false}
+          onBack={() => setSelectedMov(null)}
+          backLabel="Stock"
+          list={
           <div className="space-y-3">
             <Card>
               <CardHeader><CardTitle hint={stockRowsFiltrados.length}>Stock actual</CardTitle></CardHeader>
@@ -382,7 +390,8 @@ export default function PanolPanel() {
               }
             </Card>
           </div>
-
+          }
+          detail={
           <Card className="sticky top-[88px]">
             <CardHeader><CardTitle>Registrar movimiento</CardTitle></CardHeader>
             <div className="p-4 space-y-3">
@@ -626,11 +635,21 @@ export default function PanolPanel() {
               )}
             </div>
           </Card>
+          }
+         />
         </div>
       )}
 
       {tab === 'catalogo' && (
-        <div className="px-7 py-5 grid grid-cols-[1fr_360px] gap-4 items-start">
+        <div className="px-4 sm:px-7 py-5">
+         <MasterDetail
+          listWidth="360px"
+          listSide="right"
+          stack
+          hasSelection={false}
+          onBack={() => {}}
+          backLabel="Catálogo"
+          list={
           <Card>
             <CardHeader actions={
               <Input value={artFilter} onChange={e => setArtFilter(e.target.value)} placeholder="Buscar artículo..." />
@@ -652,7 +671,8 @@ export default function PanolPanel() {
               />
             )}
           </Card>
-
+          }
+          detail={
           <Card className="sticky top-[88px]">
             <CardHeader><CardTitle>Nuevo artículo</CardTitle></CardHeader>
             <div className="p-4">
@@ -673,6 +693,8 @@ export default function PanolPanel() {
               </div>
             </div>
           </Card>
+          }
+         />
         </div>
       )}
     </div>

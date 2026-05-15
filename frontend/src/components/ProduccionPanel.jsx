@@ -4,9 +4,10 @@ import {
   cx, Icon, Button, Input, Field, Select,
   Card, CardHeader, CardTitle,
   Metric, useToast, useSearchShortcut,
-  DataTable, ModuleHeader, EmptyState,
+  DataTable, ModuleHeader, EmptyState, MasterDetail,
 } from './primitives';
 import { usePermissions } from '../contexts/PermissionsContext';
+import { useNodeEvents } from '../contexts/NotificationsContext';
 
 const ESTADOS = [
   { key: 'pre_produccion',   label: 'Pre-Producción' },
@@ -125,6 +126,7 @@ export default function ProduccionPanel({ openNewSignal }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => { load(); }, [load]);
+  useNodeEvents('produccion', load);
 
   // Sync selectedLote con datos frescos tras operaciones
   React.useEffect(() => {
@@ -184,7 +186,7 @@ export default function ProduccionPanel({ openNewSignal }) {
   if (loading) return (
     <div>
       <ModuleHeader module="produccion" subtitle="Cargando..." />
-      <div className="px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
+      <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
     </div>
   );
 
@@ -273,19 +275,26 @@ export default function ProduccionPanel({ openNewSignal }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar lote..."
-            className="h-8 pl-8 pr-3 w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500"
+            className="h-8 pl-8 pr-3 w-32 sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500"
           />
         </div>
       } />
 
-      <div className="px-7 pt-5 grid grid-cols-5 gap-3">
+      <div className="px-4 sm:px-7 pt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {ESTADOS.map(s => (
           <Metric key={s.key} label={s.label} value={counts[s.key] || 0} icon="package"
             accent={s.key === 'pre_produccion' ? 'zinc' : s.key === 'produccion' ? 'blue' : s.key === 'final_produccion' ? 'violet' : s.key === 'terminado' ? 'emerald' : 'amber'} />
         ))}
       </div>
 
-      <div className="px-7 py-5 grid grid-cols-[1fr_320px] gap-4 items-start">
+      <div className="px-4 sm:px-7 py-5">
+       <MasterDetail
+        listWidth="320px"
+        listSide="right"
+        hasSelection={!!selectedLote}
+        onBack={() => { setSelectedLote(null); setObsTexto(''); setActiveObsKey(null); }}
+        backLabel="Lotes"
+        list={
         <div className="space-y-3">
           <Card>
             <CardHeader><CardTitle hint={lotesFiltrados.length}>Lotes de producción</CardTitle></CardHeader>
@@ -302,7 +311,8 @@ export default function ProduccionPanel({ openNewSignal }) {
             }
           </Card>
         </div>
-
+        }
+        detail={
         <div className="space-y-3 sticky top-[88px]">
           {selectedLote ? (
             <Card>
@@ -421,6 +431,8 @@ export default function ProduccionPanel({ openNewSignal }) {
             </Card>
           )}
         </div>
+        }
+       />
       </div>
     </div>
   );

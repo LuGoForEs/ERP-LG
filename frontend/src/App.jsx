@@ -8,6 +8,10 @@ import LoginPage from './components/LoginPage';
 import TwoFASetupDialog from './components/TwoFASetupDialog';
 import ActivationPage from './components/ActivationPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
+import CredentialChangePage from './components/CredentialChangePage';
+import TokenConfirmPage from './components/TokenConfirmPage';
+import Forced2FAGate from './components/Forced2FAGate';
+import RootConsole from './components/RootConsole';
 import ComercialPanel from './components/ComercialPanel';
 import AdminPanel from './components/AdminPanel';
 import DesarrolloPanel from './components/DesarrolloPanel';
@@ -30,10 +34,13 @@ const PANELS = {
 };
 
 function AppInner() {
-  const activateToken = new URLSearchParams(window.location.search).get('activate');
-  const resetToken    = new URLSearchParams(window.location.search).get('reset');
+  const _params       = new URLSearchParams(window.location.search);
+  const activateToken = _params.get('activate');
+  const resetToken    = _params.get('reset');
+  const credConfirm   = _params.get('cred-confirm');
+  const adminConfirm  = _params.get('admin-confirm');
 
-  const { user, loading, partialToken, logout } = useAuth();
+  const { user, loading, partialToken, credChangePartial, logout, refreshUser } = useAuth();
   const { allowedPanels } = usePermissions();
   const [active, setActive] = React.useState('comercial');
   const [showShortcuts, setShowShortcuts] = React.useState(false);
@@ -72,6 +79,18 @@ function AppInner() {
     return <ResetPasswordPage token={resetToken} />;
   }
 
+  if (credConfirm) {
+    return <TokenConfirmPage kind="cred" token={credConfirm} />;
+  }
+
+  if (adminConfirm) {
+    return <TokenConfirmPage kind="admin" token={adminConfirm} />;
+  }
+
+  if (credChangePartial) {
+    return <CredentialChangePage />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -85,6 +104,16 @@ function AppInner() {
 
   if (!user || partialToken) {
     return <LoginPage />;
+  }
+
+  // 2FA obligatorio (root tras rotar credenciales; admins de sistema en su 1er ingreso)
+  if (user.must_enable_2fa && !user.totp_enabled) {
+    return <Forced2FAGate onDone={refreshUser} onLogout={logout} />;
+  }
+
+  // Consola aislada del root: no ve paneles operativos ni sidebar
+  if (user.is_root) {
+    return <RootConsole user={user} onLogout={logout} onRefreshUser={refreshUser} />;
   }
 
   const Panel = PANELS[active] || PANELS[([...allowedPanels][0])] || ComercialPanel;
@@ -105,7 +134,9 @@ function AppInner() {
           onClose={closeSidebar}
         />
         <main className="flex-1 min-w-0 max-h-screen max-h-[100dvh] overflow-y-auto">
-          <Panel openNewSignal={newSignal} />
+          <div className="w-full max-w-[1600px] mx-auto">
+            <Panel openNewSignal={newSignal} />
+          </div>
         </main>
         <ShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} allowedPanels={allowedPanels} />
         <TwoFASetupDialog

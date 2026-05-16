@@ -14,6 +14,18 @@ class UserProfile(models.Model):
     reset_token               = models.UUIDField(null=True, blank=True, db_index=True)
     reset_token_created_at    = models.DateTimeField(null=True, blank=True)
 
+    # ─── Root user (bypass para administración) ───────────────────────────────
+    is_root                   = models.BooleanField(default=False, db_index=True)
+    # Fuerza cambio de email + contraseña en el primer ingreso del root.
+    must_change_credentials   = models.BooleanField(default=False)
+    # Fuerza configurar 2FA antes de acceder (root y admins de sistema creados).
+    must_enable_2fa           = models.BooleanField(default=False)
+    # Credenciales nuevas en espera de confirmación por email (rotación root).
+    pending_email             = models.EmailField(blank=True, default='')
+    pending_password          = models.CharField(max_length=255, blank=True, default='')  # hash
+    cred_change_token         = models.UUIDField(null=True, blank=True, db_index=True)
+    cred_change_token_created_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = 'user_profiles'
 
@@ -41,3 +53,24 @@ class UserRole(models.Model):
     class Meta:
         db_table        = 'user_roles'
         unique_together = [('user', 'role')]
+
+
+class PendingSystemAdmin(models.Model):
+    """Alta de un admin de sistema pendiente de confirmación por email.
+
+    El root inicia la creación; el admin recién se materializa cuando el root
+    confirma vía el link enviado a su propia casilla (válido 1 hora).
+    """
+    first_name              = models.CharField(max_length=150, blank=True, default='')
+    last_name               = models.CharField(max_length=150, blank=True, default='')
+    dni                     = models.CharField(max_length=20, blank=True, default='')
+    email                   = models.EmailField()
+    confirm_token           = models.UUIDField(default=uuid.uuid4, db_index=True)
+    confirm_token_created_at = models.DateTimeField(auto_now_add=True)
+    requested_by            = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='pending_admins_requested',
+    )
+
+    class Meta:
+        db_table = 'pending_system_admins'

@@ -26,3 +26,5 @@ node_modules/
 venv/
 backend/staticfiles/
 frontend/dist/
+# Local backend env (secrets)
+backend/.env

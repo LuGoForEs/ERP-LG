@@ -111,6 +111,15 @@ export const api = {
     activate:              body     => post('/auth/activate/', body),
     requestPasswordReset:  body     => post('/auth/password-reset/', body),
     confirmPasswordReset:  body     => post('/auth/password-reset/confirm/', body),
+    // Root (bypass de administración)
+    rootCredChange:    body       => post('/auth/root/cred-change/', body),
+    rootCredConfirm:   body       => post('/auth/root/cred-confirm/', body),
+    rootListAdmins:    ()         => get('/auth/root/admins/'),
+    rootCreateAdmin:   body       => post('/auth/root/admins/create/', body),
+    rootConfirmAdmin:  body       => post('/auth/root/admins/confirm/', body),
+    rootUpdateAdmin:   (id, body) => put(`/auth/root/admins/${id}/`, body),
+    rootDeleteAdmin:   id         => del(`/auth/root/admins/${id}/`),
+    rootCancelPending: id         => del(`/auth/root/admins/pending/${id}/`),
   },
 
   comercial: {

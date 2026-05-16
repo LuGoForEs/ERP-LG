@@ -363,7 +363,7 @@ export default function UsersPanel() {
           </Card>
           }
           detail={
-          selected && editForm && (
+          selected && editForm ? (
             <Card className="sticky top-[88px]">
               <CardHeader
                 actions={
@@ -463,6 +463,14 @@ export default function UsersPanel() {
                   )}
                 </div>
               </div>
+            </Card>
+          ) : (
+            <Card className="sticky top-[88px]">
+              <EmptyState
+                icon="users"
+                msg="Seleccioná un usuario"
+                hint="Elegí un usuario de la lista para ver y editar sus datos"
+              />
             </Card>
           )
           }

@@ -275,7 +275,7 @@ export default function ProduccionPanel({ openNewSignal }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar lote..."
-            className="h-8 pl-8 pr-3 w-32 sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500"
+            className="h-10 sm:h-8 pl-8 pr-3 w-full sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500"
           />
         </div>
       } />

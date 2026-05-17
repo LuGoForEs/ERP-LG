@@ -84,8 +84,16 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75 }) {
 
 // ─── BUTTON ───────────────────────────────────────────────────────────────────
 export function Button({ children, variant = 'default', size = 'md', accent = 'blue', className = '', icon, iconAfter, ...props }) {
+  const isTouch = useIsTouch();
   const base = 'inline-flex items-center justify-center gap-2 font-medium rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-950 disabled:opacity-40 disabled:cursor-not-allowed select-none';
-  const sizes = {
+  // En pantallas táctiles agrandamos los tamaños chicos para alcanzar ~40px de área de toque.
+  const sizes = isTouch ? {
+    xs: 'h-9 px-3 text-xs',
+    sm: 'h-9 px-3.5 text-xs',
+    md: 'h-10 px-4 text-sm',
+    lg: 'h-11 px-5 text-sm',
+    icon: 'h-10 w-10 p-0',
+  } : {
     xs: 'h-7 px-2.5 text-xs',
     sm: 'h-8 px-3 text-xs',
     md: 'h-9 px-4 text-sm',
@@ -312,7 +320,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={push}>
       {children}
-      <div className="fixed bottom-4 inset-x-3 sm:inset-x-auto sm:right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] inset-x-3 sm:inset-x-auto sm:right-4 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map(t => (
           <div
             key={t.id}
@@ -366,7 +374,7 @@ export function Dialog({ open, onClose, title, children, size = 'md' }) {
       <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in" onClick={onClose} />
       <div className={cx(
         'relative w-full bg-zinc-900 border-0 sm:border border-zinc-800 rounded-none sm:rounded-lg shadow-2xl',
-        'animate-in zoom-in-95 flex flex-col max-h-full sm:max-h-[90vh]',
+        'animate-in zoom-in-95 flex flex-col max-h-full sm:max-h-[90vh] pb-[env(safe-area-inset-bottom)] sm:pb-0',
         sizes[size],
       )}>
         {title && (
@@ -709,7 +717,7 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
               onClick={() => handleSelect(m.id)}
               aria-current={isActive ? 'page' : undefined}
               className={cx(
-                'w-full flex items-center gap-3 px-4 py-2 text-sm transition-all border-l-2',
+                'w-full flex items-center gap-3 px-4 py-2.5 sm:py-2 text-sm transition-all border-l-2',
                 isActive
                   ? activeClasses[m.accent]
                   : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900',
@@ -725,7 +733,7 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
         })}
       </nav>
 
-      <div className="border-t border-zinc-800/60 p-3 space-y-1">
+      <div className="border-t border-zinc-800/60 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-1">
         {!isTouch && (
         <button
           onClick={onShortcuts}
@@ -798,7 +806,9 @@ export function ModuleHeader({ module, subtitle, actions }) {
   return (
     <header className={cx(
       'sticky top-0 z-20 px-4 sm:px-7 py-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/60',
-      'flex items-center justify-between gap-3',
+      // En teléfono: dos filas (identidad arriba, acciones a ancho completo abajo).
+      // En sm+: una sola fila con acciones alineadas a la derecha.
+      'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between',
     )}>
       <div className="flex items-center gap-3 min-w-0">
         {openSidebar && (
@@ -817,10 +827,14 @@ export function ModuleHeader({ module, subtitle, actions }) {
           <h1 className={cx('font-mono text-xs uppercase tracking-[0.12em] font-semibold leading-none', accentText[mod.accent] || 'text-zinc-400')}>
             {mod.name}
           </h1>
-          {subtitle && <p className="text-xs text-zinc-500 mt-1 truncate">{subtitle}</p>}
+          {subtitle && <p className="hidden sm:block text-xs text-zinc-500 mt-1 truncate">{subtitle}</p>}
         </div>
       </div>
-      {actions}
+      {actions && (
+        <div className="flex w-full items-center gap-2 min-w-0 sm:w-auto [&>*]:min-w-0">
+          {actions}
+        </div>
+      )}
     </header>
   );
 }

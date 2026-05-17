@@ -23,7 +23,7 @@ export default function ActivationPage({ token }) {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+    <div className="min-h-screen min-h-[100dvh] bg-zinc-950 flex items-center justify-center px-4 py-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <span className="font-mono text-xs font-semibold tracking-[0.2em] uppercase text-zinc-500">ERP-LG · SIBOTEC</span>

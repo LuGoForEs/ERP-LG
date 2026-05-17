@@ -28,3 +28,8 @@ backend/staticfiles/
 frontend/dist/
 # Local backend env (secrets)
 backend/.env
+
+# Debug/captura artifacts (ad-hoc)
+captura.png
+frontend/screenshot.cjs
+screenshot.png

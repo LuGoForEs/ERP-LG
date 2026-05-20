@@ -12,13 +12,16 @@ export function PermissionsProvider({ children }) {
     if (!user) return { allowedPanels: new Set(), panelPerms: new Map() };
 
     if (user.is_superuser) {
-      const all = [...ALL_PANELS, 'usuarios'];
+      const all = [...ALL_PANELS, 'usuarios', 'soporte'];
       return {
         allowedPanels: new Set(all),
         panelPerms: new Map(all.map(p => [p, 'rw'])),
       };
     }
 
+    // El backend ya expande 'soporte' a todos los paneles en read-only + el
+    // panel 'soporte' RW (ver auth_erp.views._build_roles_payload). Acá solo
+    // procesamos roles individuales y gerencia.
     const perms = new Map();
     for (const r of (user.roles || [])) {
       if (r.role === 'gerencia') {

@@ -12,7 +12,7 @@ CHANNEL = 'erp:events'
 
 ALL_NODES = {
     'comercial', 'administracion', 'desarrollo', 'compras',
-    'panol', 'produccion', 'logistica',
+    'panol', 'produccion', 'logistica', 'soporte',
 }
 
 _redis_client = None
@@ -30,7 +30,7 @@ def allowed_nodes(user):
     if user.is_superuser:
         return set(ALL_NODES)
     roles = set(user.roles.values_list('role', flat=True))
-    if 'gerencia' in roles:
+    if 'gerencia' in roles or 'soporte' in roles:
         return set(ALL_NODES)
     return roles & ALL_NODES
 

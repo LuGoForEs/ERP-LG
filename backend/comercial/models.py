@@ -1,5 +1,7 @@
 from django.db import models
 from django.conf import settings
+from simple_history.models import HistoricalRecords
+
 
 class OrdenFabricacion(models.Model):
     cliente = models.CharField(max_length=255)
@@ -18,6 +20,8 @@ class OrdenFabricacion(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    history = HistoricalRecords()
+
     class Meta:
         db_table = "ordenes_fabricacion"
 
@@ -31,6 +35,8 @@ class Anticipo(models.Model):
     factura_archivo = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords()
 
     class Meta:
         db_table = "anticipos"

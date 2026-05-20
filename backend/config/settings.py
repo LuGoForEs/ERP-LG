@@ -32,7 +32,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'drf_spectacular',
-    
+    'simple_history',
+
     # Auth
     'auth_erp.apps.AuthErpConfig',
 
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
     'produccion.apps.ProduccionConfig',
     'logistica.apps.LogisticaConfig',
     'notificaciones.apps.NotificacionesConfig',
+    'soporte.apps.SoporteConfig',
 ]
 
 MIDDLEWARE = [
@@ -57,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

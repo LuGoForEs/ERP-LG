@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class Lote(models.Model):
@@ -10,6 +11,8 @@ class Lote(models.Model):
     observaciones = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords(excluded_fields=['planos', 'movimientos'])
 
     class Meta:
         db_table = "lotes"

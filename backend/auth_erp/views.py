@@ -28,6 +28,25 @@ ROOT_LINK_TTL = timedelta(hours=1)
 ALL_PANELS = ['comercial', 'administracion', 'desarrollo', 'compras', 'panol', 'produccion', 'logistica']
 
 
+def user_has_soporte_role(user):
+    """True si el usuario tiene el rol 'soporte' asignado."""
+    if not (user and user.is_authenticated):
+        return False
+    return UserRole.objects.filter(user=user, role='soporte').exists()
+
+
+def can_access_soporte_features(user):
+    """Acceso a trazabilidad + bandeja de tickets de soporte.
+
+    Superusuarios y usuarios con rol 'soporte' pueden ver el panel completo
+    de soporte (historial de OF + tickets de todos). El resto solo crea sus
+    propios tickets y los consulta.
+    """
+    if not (user and user.is_authenticated):
+        return False
+    return bool(user.is_superuser) or user_has_soporte_role(user)
+
+
 # ─── Permissions ──────────────────────────────────────────────────────────────
 
 class IsSuperUser(BasePermission):
@@ -42,6 +61,12 @@ class IsRoot(BasePermission):
             return False
         profile = getattr(u, 'profile', None)
         return bool(profile and profile.is_root)
+
+
+class IsSoporteOrSuperuser(BasePermission):
+    """Permiso para endpoints de soporte (trazabilidad, gestión de tickets)."""
+    def has_permission(self, request, view):
+        return can_access_soporte_features(request.user)
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -62,18 +87,40 @@ def _verify_recaptcha(token):
 
 
 def _build_roles_payload(user):
-    """Returns list of {role, perm} dicts. Gerencia expands to all 7 panels."""
+    """Returns list of {role, perm} dicts. Gerencia expands to all 7 panels.
+
+    Reglas especiales:
+    - is_superuser: todos los paneles RW + 'usuarios' + 'soporte'.
+    - rol 'soporte': todos los paneles operativos en READ-ONLY + panel 'soporte' RW.
+      Nunca da escritura sobre paneles operativos (decisión de producto).
+    - rol 'gerencia': expande a los 7 paneles operativos con la permission asignada.
+    - Un rol individual override gerencia.
+    """
     if user.is_superuser:
-        return [{'role': p, 'perm': 'rw'} for p in ALL_PANELS + ['usuarios']]
+        return [{'role': p, 'perm': 'rw'} for p in ALL_PANELS + ['usuarios', 'soporte']]
+
+    user_roles = list(UserRole.objects.filter(user=user))
+    has_soporte = any(ur.role == 'soporte' for ur in user_roles)
 
     perms = {}
-    for ur in UserRole.objects.filter(user=user):
+    for ur in user_roles:
+        if ur.role == 'soporte':
+            continue  # se procesa al final con prioridad
         if ur.role == 'gerencia':
             for panel in ALL_PANELS:
                 if panel not in perms:
                     perms[panel] = ur.permission
         else:
-            perms[ur.role] = ur.permission  # individual role overrides gerencia
+            perms[ur.role] = ur.permission
+
+    if has_soporte:
+        # Soporte ve todo en read-only y tiene acceso RW al panel 'soporte'.
+        # Si el usuario ya tenía un rol con escritura sobre un panel, se respeta
+        # ese permiso (un usuario puede ser, p.ej., comercial RW + soporte).
+        for panel in ALL_PANELS:
+            if panel not in perms:
+                perms[panel] = 'r'
+        perms['soporte'] = 'rw'
 
     return [{'role': k, 'perm': v} for k, v in perms.items()]
 

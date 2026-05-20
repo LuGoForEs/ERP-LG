@@ -40,6 +40,7 @@ class UserRole(models.Model):
         ('produccion',     'Producción'),
         ('logistica',      'Logística'),
         ('gerencia',       'Gerencia'),
+        ('soporte',        'Soporte de sistemas'),
     ]
     PERM_CHOICES = [
         ('rw', 'Lectura/Escritura'),

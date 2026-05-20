@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class PedidoMaterial(models.Model):
@@ -11,6 +12,8 @@ class PedidoMaterial(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    history = HistoricalRecords()
+
     class Meta:
         db_table = "pedidos_material"
 
@@ -20,6 +23,8 @@ class OrdenCompra(models.Model):
     estado = models.CharField(max_length=50, default="emitida")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords()
 
     class Meta:
         db_table = "ordenes_compra"
@@ -48,6 +53,8 @@ class Plano(models.Model):
     estado = models.CharField(max_length=50, default="enviado")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords()
 
     class Meta:
         db_table = "planos"

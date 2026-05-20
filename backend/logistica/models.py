@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class Despacho(models.Model):
@@ -10,6 +11,8 @@ class Despacho(models.Model):
     comprobante_saldo = models.FileField(upload_to='comprobantes_saldo/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords()
 
     class Meta:
         db_table = "despachos"

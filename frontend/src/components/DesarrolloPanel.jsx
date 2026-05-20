@@ -6,13 +6,14 @@ import {
   cx, Icon, Button, Input, Field, Select,
   EstadoBadge, Badge, Card, CardHeader, CardTitle,
   Metric, useToast, Tabs, useSearchShortcut,
-  EmptyState, DataTable, ModuleHeader, MasterDetail,
+  EmptyState, DataTable, ModuleHeader, MasterDetail, useIsPhone,
 } from './primitives';
 
 const V2_EMPTY_ITEM = { cantidad: '', unidad: 'u', descripcion: '', uso_en: '', observaciones: '' };
 
 export default function DesarrolloPanel({ openNewSignal }) {
   const { isReadonly } = usePermissions();
+  const isPhone = useIsPhone();
   const readonly = isReadonly('desarrollo');
   const [ofsAprobadas, setOfsAprobadas] = React.useState([]);
   const [pms, setPms] = React.useState([]);
@@ -156,7 +157,7 @@ export default function DesarrolloPanel({ openNewSignal }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar OF..."
-            className="h-8 pl-8 pr-3 w-32 sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500"
+            className="h-10 sm:h-8 pl-8 pr-3 w-full sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500"
           />
         </div>
       } />
@@ -243,6 +244,29 @@ export default function DesarrolloPanel({ openNewSignal }) {
                       <Field label="Equipo"><Input value={pmForm.equipo} onChange={e => setPmForm({...pmForm, equipo: e.target.value})} placeholder="Tanque 5000L" /></Field>
                     </div>
 
+{isPhone ? (
+                      <div className="space-y-3">
+                        {pmItems.map((item, idx) => (
+                          <div key={idx} className="border border-zinc-800 rounded-md p-3 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-zinc-500 font-semibold">Ítem {idx+1}</span>
+                              <button onClick={() => setPmItems(p => p.length <= 1 ? p : p.filter((_,i) => i !== idx))} disabled={pmItems.length <= 1} className="grid place-items-center w-9 h-9 -mr-1 rounded text-zinc-600 hover:text-rose-400 disabled:opacity-20"><Icon name="x" size={16} /></button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Field label="Cantidad"><Input type="number" step="0.01" value={item.cantidad} onChange={e => updateItem(idx,'cantidad',e.target.value)} placeholder="0" /></Field>
+                              <Field label="Unidad">
+                                <Select value={item.unidad} onChange={e => updateItem(idx,'unidad',e.target.value)}>
+                                  {['u','m','kg','L','m²'].map(u => <option key={u} value={u} className="bg-zinc-900">{u}</option>)}
+                                </Select>
+                              </Field>
+                            </div>
+                            <Field label="Descripción" required><Input value={item.descripcion} onChange={e => updateItem(idx,'descripcion',e.target.value)} placeholder="Material..." /></Field>
+                            <Field label="Uso en"><Input value={item.uso_en} onChange={e => updateItem(idx,'uso_en',e.target.value)} placeholder="Destino" /></Field>
+                            <Field label="Observaciones"><Input value={item.observaciones} onChange={e => updateItem(idx,'observaciones',e.target.value)} placeholder="Notas" /></Field>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
                     <div className="border border-zinc-800 rounded-md overflow-x-auto">
                       <table className="w-full min-w-[560px] text-sm">
                         <thead className="bg-zinc-900/60 border-b border-zinc-800">
@@ -274,7 +298,7 @@ export default function DesarrolloPanel({ openNewSignal }) {
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </div>)}
 
                     <div className="flex justify-between items-center">
                       <button onClick={() => setPmItems(p => [...p, {...V2_EMPTY_ITEM}])} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-dashed border-zinc-800 text-xs text-zinc-400 hover:border-cyan-500/60 hover:text-cyan-400 transition-colors">

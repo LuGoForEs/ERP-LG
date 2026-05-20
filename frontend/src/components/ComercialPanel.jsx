@@ -119,7 +119,7 @@ export default function ComercialPanel({ openNewSignal }) {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar..."
-                className="h-8 pl-8 pr-12 w-32 sm:w-56 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+                className="h-10 sm:h-8 pl-8 pr-12 w-full sm:w-56 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
               />
               <span className="absolute right-2 top-1/2 -translate-y-1/2"><Kbd>/</Kbd></span>
             </div>

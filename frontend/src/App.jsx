@@ -6,8 +6,13 @@ import { PermissionsProvider, usePermissions } from './contexts/PermissionsConte
 import { NotificationsProvider } from './contexts/NotificationsContext';
 import LoginPage from './components/LoginPage';
 import TwoFASetupDialog from './components/TwoFASetupDialog';
+import ContactSoporteDialog from './components/ContactSoporteDialog';
 import ActivationPage from './components/ActivationPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
+import CredentialChangePage from './components/CredentialChangePage';
+import TokenConfirmPage from './components/TokenConfirmPage';
+import Forced2FAGate from './components/Forced2FAGate';
+import RootConsole from './components/RootConsole';
 import ComercialPanel from './components/ComercialPanel';
 import AdminPanel from './components/AdminPanel';
 import DesarrolloPanel from './components/DesarrolloPanel';
@@ -16,6 +21,7 @@ import PanolPanel from './components/PanolPanel';
 import ProduccionPanel from './components/ProduccionPanel';
 import LogisticaPanel from './components/LogisticaPanel';
 import UsersPanel from './components/UsersPanel';
+import SoportePanel from './components/SoportePanel';
 import { api } from './api';
 
 const PANELS = {
@@ -27,18 +33,23 @@ const PANELS = {
   produccion:     ProduccionPanel,
   logistica:      LogisticaPanel,
   usuarios:       UsersPanel,
+  soporte:        SoportePanel,
 };
 
 function AppInner() {
-  const activateToken = new URLSearchParams(window.location.search).get('activate');
-  const resetToken    = new URLSearchParams(window.location.search).get('reset');
+  const _params       = new URLSearchParams(window.location.search);
+  const activateToken = _params.get('activate');
+  const resetToken    = _params.get('reset');
+  const credConfirm   = _params.get('cred-confirm');
+  const adminConfirm  = _params.get('admin-confirm');
 
-  const { user, loading, partialToken, logout } = useAuth();
+  const { user, loading, partialToken, credChangePartial, logout, refreshUser } = useAuth();
   const { allowedPanels } = usePermissions();
   const [active, setActive] = React.useState('comercial');
   const [showShortcuts, setShowShortcuts] = React.useState(false);
   const [newSignal, setNewSignal] = React.useState(0);
   const [show2FA, setShow2FA] = React.useState(false);
+  const [showContactSoporte, setShowContactSoporte] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [currentUser, setCurrentUser] = React.useState(user);
 
@@ -72,6 +83,18 @@ function AppInner() {
     return <ResetPasswordPage token={resetToken} />;
   }
 
+  if (credConfirm) {
+    return <TokenConfirmPage kind="cred" token={credConfirm} />;
+  }
+
+  if (adminConfirm) {
+    return <TokenConfirmPage kind="admin" token={adminConfirm} />;
+  }
+
+  if (credChangePartial) {
+    return <CredentialChangePage />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -87,6 +110,16 @@ function AppInner() {
     return <LoginPage />;
   }
 
+  // 2FA obligatorio (root tras rotar credenciales; admins de sistema en su 1er ingreso)
+  if (user.must_enable_2fa && !user.totp_enabled) {
+    return <Forced2FAGate onDone={refreshUser} onLogout={logout} />;
+  }
+
+  // Consola aislada del root: no ve paneles operativos ni sidebar
+  if (user.is_root) {
+    return <RootConsole user={user} onLogout={logout} onRefreshUser={refreshUser} />;
+  }
+
   const Panel = PANELS[active] || PANELS[([...allowedPanels][0])] || ComercialPanel;
 
   return (
@@ -100,12 +133,15 @@ function AppInner() {
           user={currentUser}
           onLogout={logout}
           on2FASetup={() => setShow2FA(true)}
+          onContactSoporte={() => setShowContactSoporte(true)}
           allowedPanels={allowedPanels}
           mobileOpen={sidebarOpen}
           onClose={closeSidebar}
         />
         <main className="flex-1 min-w-0 max-h-screen max-h-[100dvh] overflow-y-auto">
-          <Panel openNewSignal={newSignal} />
+          <div className="w-full max-w-[1600px] mx-auto">
+            <Panel openNewSignal={newSignal} />
+          </div>
         </main>
         <ShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} allowedPanels={allowedPanels} />
         <TwoFASetupDialog
@@ -113,6 +149,10 @@ function AppInner() {
           open={show2FA}
           onClose={() => setShow2FA(false)}
           onUpdated={handleUpdated2FA}
+        />
+        <ContactSoporteDialog
+          open={showContactSoporte}
+          onClose={() => setShowContactSoporte(false)}
         />
       </div>
       </SidebarToggleProvider>

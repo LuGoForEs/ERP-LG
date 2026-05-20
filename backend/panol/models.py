@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class Ingreso(models.Model):
@@ -9,6 +10,8 @@ class Ingreso(models.Model):
     verificacion_notas = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords()
 
     class Meta:
         db_table = "ingresos"
@@ -35,6 +38,8 @@ class Movimiento(models.Model):
     estado = models.CharField(max_length=50, default="despachado")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords()
 
     class Meta:
         db_table = "movimientos"

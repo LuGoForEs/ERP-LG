@@ -67,10 +67,11 @@ async function request(method, path, body, isFormData = false) {
   return res.json();
 }
 
-const get  = path             => request('GET',    path);
-const post = (path, b, f)     => request('POST',   path, b, f);
-const put  = (path, b, f)     => request('PUT',    path, b, f);
-const del  = path             => request('DELETE', path);
+const get   = path             => request('GET',    path);
+const post  = (path, b, f)     => request('POST',   path, b, f);
+const put   = (path, b, f)     => request('PUT',    path, b, f);
+const patch = (path, b, f)     => request('PATCH',  path, b, f);
+const del   = path             => request('DELETE', path);
 
 async function downloadBlob(path) {
   const makeOpts = (token) => ({
@@ -111,6 +112,15 @@ export const api = {
     activate:              body     => post('/auth/activate/', body),
     requestPasswordReset:  body     => post('/auth/password-reset/', body),
     confirmPasswordReset:  body     => post('/auth/password-reset/confirm/', body),
+    // Root (bypass de administración)
+    rootCredChange:    body       => post('/auth/root/cred-change/', body),
+    rootCredConfirm:   body       => post('/auth/root/cred-confirm/', body),
+    rootListAdmins:    ()         => get('/auth/root/admins/'),
+    rootCreateAdmin:   body       => post('/auth/root/admins/create/', body),
+    rootConfirmAdmin:  body       => post('/auth/root/admins/confirm/', body),
+    rootUpdateAdmin:   (id, body) => put(`/auth/root/admins/${id}/`, body),
+    rootDeleteAdmin:   id         => del(`/auth/root/admins/${id}/`),
+    rootCancelPending: id         => del(`/auth/root/admins/pending/${id}/`),
   },
 
   comercial: {
@@ -162,5 +172,32 @@ export const api = {
     createDespacho:        body => post('/logistica/despachos', body).then(r => r.data),
     solicitarAutorizacion: id   => post(`/logistica/despachos/${id}/solicitar-autorizacion`).then(r => r.data),
     ejecutar:              id   => post(`/logistica/despachos/${id}/ejecutar`).then(r => r.data),
+  },
+
+  soporte: {
+    listTickets:    ()             => get('/soporte/tickets/').then(r => r.data),
+    createTicket:   (body, files)  => {
+      // Si hay archivos usamos multipart; sino JSON.
+      if (files && files.length > 0) {
+        const fd = new FormData();
+        for (const [k, v] of Object.entries(body)) fd.append(k, v);
+        for (const f of files) fd.append('files', f);
+        return post('/soporte/tickets/', fd, true).then(r => r.data);
+      }
+      return post('/soporte/tickets/', body).then(r => r.data);
+    },
+    getTicket:      id             => get(`/soporte/tickets/${id}/`).then(r => r.data),
+    patchTicket:    (id, body)     => patch(`/soporte/tickets/${id}/`, body).then(r => r.data),
+    addComment:     (id, body)     => post(`/soporte/tickets/${id}/comments/`, body).then(r => r.data),
+    listOFs:        (q)            => get(`/soporte/of/${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(r => r.data),
+    getTrazabilidad: (ofId)        => get(`/soporte/of/${ofId}/trazabilidad/`),
+    // Attachments
+    uploadAttachments: (ticketId, files) => {
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      return post(`/soporte/tickets/${ticketId}/attachments/`, fd, true).then(r => r.data);
+    },
+    downloadAttachment: (ticketId, aid) => downloadBlob(`/soporte/tickets/${ticketId}/attachments/${aid}/download/`),
+    deleteAttachment:   (ticketId, aid) => del(`/soporte/tickets/${ticketId}/attachments/${aid}/`),
   },
 };

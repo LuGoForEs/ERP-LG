@@ -9,14 +9,14 @@ import {
 const ROLE_LABELS = {
   comercial: 'Comercial', administracion: 'Administración', desarrollo: 'Desarrollo',
   compras: 'Compras', panol: 'Pañol', produccion: 'Producción',
-  logistica: 'Logística', gerencia: 'Gerencia',
+  logistica: 'Logística', gerencia: 'Gerencia', soporte: 'Soporte de sistemas',
 };
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }));
 const PERM_OPTIONS = [{ value: 'rw', label: 'Lectura/Escritura' }, { value: 'r', label: 'Solo lectura' }];
 const ROLE_ACCENT = {
   comercial: 'blue', administracion: 'violet', desarrollo: 'cyan',
   compras: 'amber', panol: 'emerald', produccion: 'rose',
-  logistica: 'orange', gerencia: 'indigo',
+  logistica: 'orange', gerencia: 'indigo', soporte: 'rose',
 };
 
 const EMPTY_FORM = {
@@ -363,7 +363,7 @@ export default function UsersPanel() {
           </Card>
           }
           detail={
-          selected && editForm && (
+          selected && editForm ? (
             <Card className="sticky top-[88px]">
               <CardHeader
                 actions={
@@ -463,6 +463,14 @@ export default function UsersPanel() {
                   )}
                 </div>
               </div>
+            </Card>
+          ) : (
+            <Card className="sticky top-[88px]">
+              <EmptyState
+                icon="users"
+                msg="Seleccioná un usuario"
+                hint="Elegí un usuario de la lista para ver y editar sus datos"
+              />
             </Card>
           )
           }

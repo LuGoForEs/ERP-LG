@@ -23,4 +23,7 @@ urlpatterns = [
 
     # Server-Sent Events (push cross-nodo)
     path('api/v1/events/', include('notificaciones.urls')),
+
+    # Soporte de sistemas (trazabilidad + tickets)
+    path('api/v1/soporte/', include('soporte.urls')),
 ]

@@ -276,7 +276,7 @@ export default function PanolPanel() {
               value={stockSearch}
               onChange={e => setStockSearch(e.target.value)}
               placeholder="Buscar material..."
-              className="h-8 pl-8 pr-3 w-32 sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+              className="h-10 sm:h-8 pl-8 pr-3 w-full sm:w-52 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
             />
           </div>
         ) : null

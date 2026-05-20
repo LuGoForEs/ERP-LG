@@ -423,6 +423,48 @@ export function Tabs({ value, onChange, items, accent = 'cyan', className = '' }
   );
 }
 
+// ─── TOGGLE ───────────────────────────────────────────────────────────────────
+// Switch deslizable estilo iOS. Si onChange no se provee → modo read-only
+// (se ve igual pero no responde a clicks ni focus).
+export function Toggle({ checked, onChange, label, hint, accent = 'emerald', disabled = false }) {
+  const readOnly = !onChange;
+  const interactive = !readOnly && !disabled;
+  const accentBg = {
+    emerald: 'bg-emerald-500', rose: 'bg-rose-500', blue: 'bg-blue-500',
+    amber: 'bg-amber-500', cyan: 'bg-cyan-500', violet: 'bg-violet-500',
+  }[accent] || 'bg-emerald-500';
+  return (
+    <label className={cx(
+      'flex items-center gap-3 rounded-md border border-zinc-800 bg-zinc-950/60 px-3 py-2.5 transition-colors',
+      interactive ? 'hover:border-zinc-700 cursor-pointer' : 'opacity-90',
+      disabled && 'opacity-50 cursor-not-allowed',
+    )}>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-zinc-100">{label}</div>
+        {hint && <div className="text-[11px] text-zinc-500 mt-0.5">{hint}</div>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-readonly={readOnly}
+        disabled={!interactive}
+        onClick={interactive ? () => onChange(!checked) : undefined}
+        className={cx(
+          'relative w-11 h-6 rounded-full transition-colors shrink-0',
+          checked ? accentBg : 'bg-zinc-800',
+          interactive ? 'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 focus-visible:ring-blue-500/60' : '',
+        )}
+      >
+        <span className={cx(
+          'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform',
+          checked && 'translate-x-5',
+        )} />
+      </button>
+    </label>
+  );
+}
+
 // ─── KBD ──────────────────────────────────────────────────────────────────────
 export function Kbd({ children }) {
   const isTouch = useIsTouch();
@@ -651,9 +693,28 @@ export function MasterDetail({
 }
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASetup, allowedPanels, mobileOpen = false, onClose }) {
+export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASetup, onContactSoporte, allowedPanels, mobileOpen = false, onClose }) {
   const handleSelect = (id) => { onSelect(id); onClose?.(); };
   const isTouch = useIsTouch();
+  const [helpOpen, setHelpOpen] = React.useState(false);
+  const helpRef = React.useRef(null);
+  // Layout especial para usuarios de soporte: el nodo Soporte queda fijo arriba
+  // y el resto se agrupa en una sección colapsable "Nodos". El estado de apertura
+  // persiste en localStorage para que no se reinicie entre navegaciones.
+  const [nodosOpen, setNodosOpen] = React.useState(() => {
+    try { return localStorage.getItem('sidebar:nodos-open') !== '0'; } catch { return true; }
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem('sidebar:nodos-open', nodosOpen ? '1' : '0'); } catch { /* ignore */ }
+  }, [nodosOpen]);
+  React.useEffect(() => {
+    if (!helpOpen) return;
+    const onDown = (e) => { if (helpRef.current && !helpRef.current.contains(e.target)) setHelpOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setHelpOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [helpOpen]);
   const activeClasses = {
     blue:    'bg-blue-500/10 border-blue-500 text-zinc-100 font-medium',
     violet:  'bg-violet-500/10 border-violet-500 text-zinc-100 font-medium',
@@ -708,43 +769,71 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
       </div>
 
       <nav className="flex-1 py-3 overflow-y-auto" role="navigation">
-        <div className="px-4 mb-2 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-600 font-semibold">Módulos</div>
-        {visibleModules.map(m => {
-          const isActive = active === m.id;
+        {(() => {
+          const soporteMod = visibleModules.find(m => m.id === 'soporte');
+          const otherMods  = visibleModules.filter(m => m.id !== 'soporte');
+          const renderModuleButton = (m) => {
+            const isActive = active === m.id;
+            return (
+              <button
+                key={m.id}
+                onClick={() => handleSelect(m.id)}
+                aria-current={isActive ? 'page' : undefined}
+                className={cx(
+                  'w-full flex items-center gap-3 px-4 py-2.5 sm:py-2 text-sm transition-all border-l-2',
+                  isActive
+                    ? activeClasses[m.accent]
+                    : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900',
+                )}
+              >
+                <span className={cx(isActive ? iconActiveClasses[m.accent] : 'text-zinc-600')}>
+                  <Icon name={V2_MODULE_ICONS[m.id]} size={15} />
+                </span>
+                <span className="flex-1 text-left">{m.name}</span>
+                <Kbd>{m.shortcut.toUpperCase()}</Kbd>
+              </button>
+            );
+          };
+
+          if (soporteMod) {
+            return (
+              <>
+                <div className="px-4 mb-2 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-600 font-semibold">Soporte de sistemas</div>
+                {renderModuleButton(soporteMod)}
+
+                {otherMods.length > 0 && (
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setNodosOpen(o => !o)}
+                      aria-expanded={nodosOpen}
+                      className="w-full flex items-center gap-2 px-4 py-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-500 hover:text-zinc-300 font-semibold transition-colors"
+                    >
+                      <Icon name={nodosOpen ? 'chevron-down' : 'chevron-right'} size={11} />
+                      <span className="flex-1 text-left">Nodos</span>
+                      <span className="text-zinc-600 normal-case tracking-normal">{otherMods.length}</span>
+                    </button>
+                    {nodosOpen && (
+                      <div className="mt-1">
+                        {otherMods.map(renderModuleButton)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          }
+
           return (
-            <button
-              key={m.id}
-              onClick={() => handleSelect(m.id)}
-              aria-current={isActive ? 'page' : undefined}
-              className={cx(
-                'w-full flex items-center gap-3 px-4 py-2.5 sm:py-2 text-sm transition-all border-l-2',
-                isActive
-                  ? activeClasses[m.accent]
-                  : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900',
-              )}
-            >
-              <span className={cx(isActive ? iconActiveClasses[m.accent] : 'text-zinc-600')}>
-                <Icon name={V2_MODULE_ICONS[m.id]} size={15} />
-              </span>
-              <span className="flex-1 text-left">{m.name}</span>
-              <Kbd>{m.shortcut.toUpperCase()}</Kbd>
-            </button>
+            <>
+              <div className="px-4 mb-2 font-mono text-[9px] uppercase tracking-[0.12em] text-zinc-600 font-semibold">Módulos</div>
+              {visibleModules.map(renderModuleButton)}
+            </>
           );
-        })}
+        })()}
       </nav>
 
       <div className="border-t border-zinc-800/60 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-1">
-        {!isTouch && (
-        <button
-          onClick={onShortcuts}
-          className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 transition-colors"
-        >
-          <Icon name="keyboard" size={14} />
-          <span className="flex-1 text-left">Atajos</span>
-          <Kbd>?</Kbd>
-        </button>
-        )}
-
         {user && (
           <>
             <div className="border-t border-zinc-800/60 pt-2 mt-1">
@@ -759,15 +848,58 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
                   <p className="font-mono text-[10px] text-zinc-600 truncate">{user.email}</p>
                 </div>
               </div>
-              {on2FASetup && (
-                <button
-                  onClick={on2FASetup}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 transition-colors"
-                >
-                  <Icon name="shield" size={13} />
-                  <span>{user.totp_enabled ? 'Gestionar 2FA' : 'Activar 2FA'}</span>
-                  {user.totp_enabled && <span className="ml-auto text-[10px] font-mono text-emerald-500">activo</span>}
-                </button>
+              {(onShortcuts || on2FASetup || onContactSoporte) && (
+                <div ref={helpRef} className="relative">
+                  <button
+                    onClick={() => setHelpOpen(o => !o)}
+                    aria-haspopup="menu"
+                    aria-expanded={helpOpen}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-rose-500 hover:text-rose-400 hover:bg-rose-500/5 transition-colors"
+                  >
+                    <Icon name="alert" size={13} />
+                    <span className="flex-1 text-left">Ayuda</span>
+                    <Icon name="chevron-right" size={12} />
+                  </button>
+                  {helpOpen && (
+                    <div
+                      role="menu"
+                      className="absolute left-full bottom-0 ml-2 min-w-[200px] rounded-md border border-zinc-800 bg-zinc-950 shadow-lg overflow-hidden z-50"
+                    >
+                      {onShortcuts && (
+                        <button
+                          role="menuitem"
+                          onClick={() => { setHelpOpen(false); onShortcuts(); }}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors"
+                        >
+                          <Icon name="keyboard" size={13} />
+                          <span className="flex-1 text-left">Atajos</span>
+                          {!isTouch && <Kbd>?</Kbd>}
+                        </button>
+                      )}
+                      {on2FASetup && (
+                        <button
+                          role="menuitem"
+                          onClick={() => { setHelpOpen(false); on2FASetup(); }}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors"
+                        >
+                          <Icon name="shield" size={13} />
+                          <span className="flex-1 text-left">{user.totp_enabled ? 'Gestionar 2FA' : 'Activar 2FA'}</span>
+                          {user.totp_enabled && <span className="text-[10px] font-mono text-emerald-500">activo</span>}
+                        </button>
+                      )}
+                      {onContactSoporte && (
+                        <button
+                          role="menuitem"
+                          onClick={() => { setHelpOpen(false); onContactSoporte(); }}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors border-t border-zinc-800/60"
+                        >
+                          <Icon name="mail" size={13} />
+                          <span className="flex-1 text-left">Contactar a soporte</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
               {onLogout && (
                 <button

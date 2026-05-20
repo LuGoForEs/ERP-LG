@@ -6,6 +6,7 @@ import { PermissionsProvider, usePermissions } from './contexts/PermissionsConte
 import { NotificationsProvider } from './contexts/NotificationsContext';
 import LoginPage from './components/LoginPage';
 import TwoFASetupDialog from './components/TwoFASetupDialog';
+import ContactSoporteDialog from './components/ContactSoporteDialog';
 import ActivationPage from './components/ActivationPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 import CredentialChangePage from './components/CredentialChangePage';
@@ -20,6 +21,7 @@ import PanolPanel from './components/PanolPanel';
 import ProduccionPanel from './components/ProduccionPanel';
 import LogisticaPanel from './components/LogisticaPanel';
 import UsersPanel from './components/UsersPanel';
+import SoportePanel from './components/SoportePanel';
 import { api } from './api';
 
 const PANELS = {
@@ -31,6 +33,7 @@ const PANELS = {
   produccion:     ProduccionPanel,
   logistica:      LogisticaPanel,
   usuarios:       UsersPanel,
+  soporte:        SoportePanel,
 };
 
 function AppInner() {
@@ -46,6 +49,7 @@ function AppInner() {
   const [showShortcuts, setShowShortcuts] = React.useState(false);
   const [newSignal, setNewSignal] = React.useState(0);
   const [show2FA, setShow2FA] = React.useState(false);
+  const [showContactSoporte, setShowContactSoporte] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [currentUser, setCurrentUser] = React.useState(user);
 
@@ -129,6 +133,7 @@ function AppInner() {
           user={currentUser}
           onLogout={logout}
           on2FASetup={() => setShow2FA(true)}
+          onContactSoporte={() => setShowContactSoporte(true)}
           allowedPanels={allowedPanels}
           mobileOpen={sidebarOpen}
           onClose={closeSidebar}
@@ -144,6 +149,10 @@ function AppInner() {
           open={show2FA}
           onClose={() => setShow2FA(false)}
           onUpdated={handleUpdated2FA}
+        />
+        <ContactSoporteDialog
+          open={showContactSoporte}
+          onClose={() => setShowContactSoporte(false)}
         />
       </div>
       </SidebarToggleProvider>

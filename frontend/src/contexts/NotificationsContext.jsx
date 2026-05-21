@@ -21,6 +21,8 @@ export function NotificationsProvider({ children }) {
 
   // subscribers: Map<nodeId, Set<callback>> — los paneles se registran para recargar
   const subscribers = React.useRef(new Map());
+  // anySubscribers: Set<callback> — reciben CUALQUIER evento (chat de tickets, etc.)
+  const anySubscribers = React.useRef(new Set());
   const lastIdRef = React.useRef(null);
 
   const subscribe = React.useCallback((nodeId, cb) => {
@@ -28,6 +30,11 @@ export function NotificationsProvider({ children }) {
     if (!set) { set = new Set(); subscribers.current.set(nodeId, set); }
     set.add(cb);
     return () => set.delete(cb);
+  }, []);
+
+  const subscribeAny = React.useCallback((cb) => {
+    anySubscribers.current.add(cb);
+    return () => anySubscribers.current.delete(cb);
   }, []);
 
   React.useEffect(() => {
@@ -58,6 +65,7 @@ export function NotificationsProvider({ children }) {
 
         const set = subscribers.current.get(data.target);
         if (set) set.forEach(cb => { try { cb(data); } catch { /* ignore */ } });
+        anySubscribers.current.forEach(cb => { try { cb(data); } catch { /* ignore */ } });
       });
 
       es.onerror = async () => {
@@ -84,7 +92,7 @@ export function NotificationsProvider({ children }) {
   }, [user, partialToken, toast]);
 
   return (
-    <NotificationsContext.Provider value={{ subscribe }}>
+    <NotificationsContext.Provider value={{ subscribe, subscribeAny }}>
       {children}
     </NotificationsContext.Provider>
   );
@@ -100,4 +108,17 @@ export function useNodeEvents(nodeId, onEvent) {
     if (!ctx || !nodeId) return;
     return ctx.subscribe(nodeId, (data) => cbRef.current?.(data));
   }, [ctx, nodeId]);
+}
+
+/** Recibe TODOS los eventos del stream — útil para vistas que filtran por
+ * ref_type/ref_id sin importar a qué nodo va dirigido (ej: chat de un ticket). */
+export function useAnyEvent(onEvent) {
+  const ctx = React.useContext(NotificationsContext);
+  const cbRef = React.useRef(onEvent);
+  cbRef.current = onEvent;
+
+  React.useEffect(() => {
+    if (!ctx) return;
+    return ctx.subscribeAny((data) => cbRef.current?.(data));
+  }, [ctx]);
 }

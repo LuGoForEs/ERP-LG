@@ -421,10 +421,22 @@ class TicketCommentCreateView(APIView):
         # Notificación por email a la contraparte
         send_ticket_comment_email(comment)
         try:
-            target = 'soporte' if not can_access_soporte_features(request.user) else 'comercial'
+            from notificaciones.events import ALL_NODES
+            if can_access_soporte_features(request.user):
+                # Soporte respondió → notificar al creador en TODOS sus nodos visibles.
+                # Si no tiene roles operativos, fallback al canal 'soporte' (que el creador
+                # igual recibe vía su sesión si tiene permiso) y a 'comercial' como red de seguridad.
+                creator = ticket.created_by
+                creator_roles = (
+                    set(creator.roles.values_list('role', flat=True)) if creator else set()
+                )
+                targets = sorted(creator_roles & ALL_NODES) or ['comercial']
+            else:
+                # Usuario respondió → notificar a soporte.
+                targets = ['soporte']
             emit_event(
                 source='soporte',
-                targets=[target],
+                targets=targets,
                 event_type='ticket_comentario',
                 message=f'Nuevo comentario en ticket #{ticket.id}',
                 ref_type='ticket',

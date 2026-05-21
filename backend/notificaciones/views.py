@@ -4,6 +4,9 @@ import time
 from django.contrib.auth.models import User
 from django.http import StreamingHttpResponse, HttpResponseForbidden
 from django.views import View
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import AccessToken
 
 from .events import CHANNEL, allowed_nodes, get_redis
@@ -78,3 +81,24 @@ class SSEStreamView(View):
         response['Cache-Control'] = 'no-cache'
         response['X-Accel-Buffering'] = 'no'
         return response
+
+
+class RecentNotificationsView(APIView):
+    """GET /api/v1/events/recent?limit=N — últimas notificaciones visibles al usuario.
+
+    Centro de notificaciones (bell + drawer). El cliente trackea localmente el
+    `last_seen_id` para calcular cuántas son nuevas; no exponemos persistencia
+    de "leído" del lado del server para mantener simple.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            limit = min(int(request.query_params.get('limit', 50)), 200)
+        except (ValueError, TypeError):
+            limit = 50
+        nodes = allowed_nodes(request.user)
+        qs = (Notification.objects
+              .filter(target_node__in=nodes)
+              .order_by('-id')[:limit])
+        return Response({'data': [n.as_payload() for n in qs]})

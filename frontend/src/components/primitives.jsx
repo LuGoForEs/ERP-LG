@@ -71,6 +71,9 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75 }) {
     'user-plus':   <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></>,
     'edit':        <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
     'mail':        <><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>,
+    'bell':        <><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>,
+    'inbox':       <><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></>,
+    'circle':      <><circle cx="12" cy="12" r="10"/></>,
   };
   return (
     <svg
@@ -85,7 +88,7 @@ export function Icon({ name, size = 16, className = '', strokeWidth = 1.75 }) {
 // ─── BUTTON ───────────────────────────────────────────────────────────────────
 export function Button({ children, variant = 'default', size = 'md', accent = 'blue', className = '', icon, iconAfter, ...props }) {
   const isTouch = useIsTouch();
-  const base = 'inline-flex items-center justify-center gap-2 font-medium rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-950 disabled:opacity-40 disabled:cursor-not-allowed select-none';
+  const base = 'inline-flex items-center justify-center gap-2 font-medium rounded-md transition-all duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-950 disabled:opacity-40 disabled:cursor-not-allowed select-none active:scale-[0.97] active:transition-none';
   // En pantallas táctiles agrandamos los tamaños chicos para alcanzar ~40px de área de toque.
   const sizes = isTouch ? {
     xs: 'h-9 px-3 text-xs',
@@ -310,10 +313,12 @@ export function ToastProvider({ children }) {
   const [toasts, setToasts] = React.useState([]);
   const push = React.useCallback((toast) => {
     const id = Math.random().toString(36).slice(2);
+    // toasts con action (ej. Undo) duran más para dar tiempo al usuario.
+    const ttl = toast.action ? 7000 : 3500;
     setToasts(prev => [...prev, { id, type: 'success', ...toast }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3500);
+    }, ttl);
   }, []);
   const dismiss = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
@@ -342,6 +347,14 @@ export function ToastProvider({ children }) {
               <Icon name={t.type === 'success' ? 'check' : t.type === 'error' ? 'x' : 'circle-dot'} size={12} strokeWidth={3} />
             </span>
             <p className="text-sm text-zinc-100 flex-1">{t.msg}</p>
+            {t.action && (
+              <button
+                onClick={() => { dismiss(t.id); t.action.onClick?.(); }}
+                className="shrink-0 px-2.5 h-7 text-xs font-mono uppercase tracking-wider rounded border border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+              >
+                {t.action.label}
+              </button>
+            )}
             <button onClick={() => dismiss(t.id)} className="shrink-0 grid place-items-center w-9 h-9 -mr-2 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800">
               <Icon name="x" size={16} />
             </button>
@@ -358,11 +371,45 @@ export function useToast() {
 
 // ─── DIALOG ───────────────────────────────────────────────────────────────────
 export function Dialog({ open, onClose, title, children, size = 'md' }) {
+  const dialogRef = React.useRef(null);
+
   React.useEffect(() => {
     if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    // Guardamos el elemento que tenía focus para devolvérselo al cerrar.
+    const prevActive = document.activeElement;
+
+    // Autofocus el primer input/button enfocable del modal.
+    const node = dialogRef.current;
+    const focusFirst = () => {
+      if (!node) return;
+      const focusable = node.querySelector('input, textarea, select, [role="switch"], button:not([data-dialog-close])');
+      if (focusable) focusable.focus();
+    };
+    setTimeout(focusFirst, 30);
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      // Focus trap simple — Tab cicla dentro del dialog.
+      if (e.key === 'Tab' && node) {
+        const focusables = node.querySelectorAll(
+          'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        }
+      }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      // Devolver focus al disparador
+      if (prevActive && prevActive.focus) { try { prevActive.focus(); } catch { /* ignore */ } }
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -372,7 +419,7 @@ export function Dialog({ open, onClose, title, children, size = 'md' }) {
   return (
     <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in" onClick={onClose} />
-      <div className={cx(
+      <div ref={dialogRef} className={cx(
         'relative w-full bg-zinc-900 border-0 sm:border border-zinc-800 rounded-none sm:rounded-lg shadow-2xl',
         'animate-in zoom-in-95 flex flex-col max-h-full sm:max-h-[90vh] pb-[env(safe-area-inset-bottom)] sm:pb-0',
         sizes[size],
@@ -389,6 +436,101 @@ export function Dialog({ open, onClose, title, children, size = 'md' }) {
       </div>
     </div>
   );
+}
+
+// ─── CONFIRM DIALOG ───────────────────────────────────────────────────────────
+// Reemplaza window.confirm con UI consistente. variant controla accent:
+//  - 'danger' (rose): para destructivo irreversible.
+//  - 'warning' (amber): para acciones serias pero reversibles.
+//  - 'default' (blue): confirmaciones normales.
+export function ConfirmDialog({
+  open, onCancel, onConfirm,
+  title = 'Confirmar acción',
+  description,
+  confirmLabel = 'Confirmar',
+  cancelLabel = 'Cancelar',
+  variant = 'default',
+  busy = false,
+}) {
+  const accent = { danger: 'danger', warning: 'default', default: 'default' }[variant] || 'default';
+  const iconAccent = { danger: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+                       warning: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+                       default: 'text-blue-400 bg-blue-500/10 border-blue-500/30' }[variant];
+  const iconName = { danger: 'alert', warning: 'alert', default: 'circle-dot' }[variant];
+
+  return (
+    <Dialog open={open} onClose={busy ? undefined : onCancel} size="sm">
+      <div className="p-5">
+        <div className="flex items-start gap-3 mb-3">
+          <span className={cx('w-9 h-9 rounded-md border grid place-items-center shrink-0', iconAccent)}>
+            <Icon name={iconName} size={16} />
+          </span>
+          <div className="flex-1 min-w-0 pt-0.5">
+            <h2 className="font-semibold text-zinc-100 leading-snug">{title}</h2>
+            {description && (
+              <p className="text-sm text-zinc-400 mt-1.5 leading-relaxed whitespace-pre-wrap">{description}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={onCancel} disabled={busy} data-dialog-close>{cancelLabel}</Button>
+          <Button
+            variant={accent === 'danger' ? 'danger' : 'default'}
+            onClick={onConfirm}
+            disabled={busy}
+          >
+            {busy ? 'Procesando...' : confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// Hook práctico para usar ConfirmDialog sin manejar estado en cada lugar.
+// Uso: const confirm = useConfirm();
+//      const ok = await confirm({ title, description, variant: 'danger' });
+//      if (ok) ...
+const ConfirmContext = React.createContext(null);
+
+export function ConfirmProvider({ children }) {
+  const [state, setState] = React.useState(null);
+  const resolver = React.useRef(null);
+
+  const confirm = React.useCallback((opts) => {
+    return new Promise((resolve) => {
+      resolver.current = resolve;
+      setState({ ...opts });
+    });
+  }, []);
+
+  const handleCancel = () => { resolver.current?.(false); setState(null); };
+  const handleConfirm = () => { resolver.current?.(true); setState(null); };
+
+  return (
+    <ConfirmContext.Provider value={confirm}>
+      {children}
+      <ConfirmDialog
+        open={!!state}
+        onCancel={handleCancel}
+        onConfirm={handleConfirm}
+        title={state?.title}
+        description={state?.description}
+        confirmLabel={state?.confirmLabel}
+        cancelLabel={state?.cancelLabel}
+        variant={state?.variant}
+      />
+    </ConfirmContext.Provider>
+  );
+}
+
+export function useConfirm() {
+  const fn = React.useContext(ConfirmContext);
+  if (!fn) {
+    // Fallback al confirm nativo si no hay provider — degradación suave.
+    return async (opts) => window.confirm(opts.description || opts.title || '¿Confirmás?');
+  }
+  return fn;
 }
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
@@ -421,6 +563,108 @@ export function Tabs({ value, onChange, items, accent = 'cyan', className = '' }
       })}
     </div>
   );
+}
+
+// ─── LIST KEYBOARD NAV ────────────────────────────────────────────────────────
+// Navegación con flechas ↑/↓ y Enter sobre una lista en foco. Devuelve el índice
+// activo + handlers para spreadear en el contenedor (focusable con tabIndex=0).
+//   const { activeIdx, listProps } = useListKeyboardNav(items, { onSelect, wrap });
+//   <ul tabIndex={0} {...listProps}>...
+export function useListKeyboardNav(items, { onSelect, wrap = false } = {}) {
+  const [activeIdx, setActiveIdx] = React.useState(0);
+
+  React.useEffect(() => {
+    if (activeIdx >= items.length) setActiveIdx(Math.max(0, items.length - 1));
+  }, [items.length, activeIdx]);
+
+  const onKeyDown = (e) => {
+    if (items.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIdx(i => {
+        if (i + 1 >= items.length) return wrap ? 0 : i;
+        return i + 1;
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIdx(i => {
+        if (i - 1 < 0) return wrap ? items.length - 1 : 0;
+        return i - 1;
+      });
+    } else if (e.key === 'Home') {
+      e.preventDefault(); setActiveIdx(0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); setActiveIdx(items.length - 1);
+    } else if (e.key === 'Enter' && onSelect) {
+      e.preventDefault();
+      onSelect(items[activeIdx], activeIdx);
+    }
+  };
+
+  return { activeIdx, setActiveIdx, listProps: { tabIndex: 0, onKeyDown } };
+}
+
+// ─── FILE DROP ────────────────────────────────────────────────────────────────
+// Hook para convertir un contenedor en drop zone de archivos. Devuelve
+// `dragActive` (bool) y `dropProps` (handlers para spreadear en el div).
+// El contador interno evita el parpadeo clásico de dragEnter/dragLeave con
+// elementos hijos. Filtra drags que no traen archivos (texto, urls).
+export function useFileDrop(onFiles, { disabled = false } = {}) {
+  const [dragActive, setDragActive] = React.useState(false);
+  const counterRef = React.useRef(0);
+
+  // Si dejamos de ser válidos (disabled toggleó a true) reseteamos.
+  React.useEffect(() => {
+    if (disabled) { counterRef.current = 0; setDragActive(false); }
+  }, [disabled]);
+
+  const hasFiles = (e) => {
+    const types = e.dataTransfer?.types;
+    if (!types) return false;
+    return Array.from(types).includes('Files');
+  };
+
+  const onDragEnter = (e) => {
+    if (disabled) return;
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    counterRef.current += 1;
+    if (counterRef.current === 1) setDragActive(true);
+  };
+
+  const onDragOver = (e) => {
+    if (disabled) return;
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const onDragLeave = (e) => {
+    if (disabled) return;
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    counterRef.current = Math.max(0, counterRef.current - 1);
+    if (counterRef.current === 0) setDragActive(false);
+  };
+
+  const onDrop = (e) => {
+    if (disabled) return;
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    counterRef.current = 0;
+    setDragActive(false);
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length > 0) onFiles?.(files);
+  };
+
+  return {
+    dragActive: dragActive && !disabled,
+    dropProps: { onDragEnter, onDragOver, onDragLeave, onDrop },
+  };
 }
 
 // ─── TOGGLE ───────────────────────────────────────────────────────────────────
@@ -485,7 +729,7 @@ export function SectionLabel({ children, className = '' }) {
   );
 }
 
-export function EmptyState({ icon = 'circle-dot', msg, hint }) {
+export function EmptyState({ icon = 'circle-dot', msg, hint, action }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-2">
       <span className="w-12 h-12 rounded-full bg-zinc-800/60 grid place-items-center text-zinc-600">
@@ -493,14 +737,152 @@ export function EmptyState({ icon = 'circle-dot', msg, hint }) {
       </span>
       <p className="text-sm text-zinc-400">{msg}</p>
       {hint && <p className="text-xs text-zinc-600">{hint}</p>}
+      {action && (
+        <div className="mt-3">
+          <Button onClick={action.onClick} icon={action.icon} size="sm">{action.label}</Button>
+        </div>
+      )}
     </div>
   );
 }
 
+// ─── TOOLTIP ──────────────────────────────────────────────────────────────────
+// Pequeño tooltip con delay. Solo se renderiza hover (no touch). Para forzar
+// aparición en focus también, se activa con focus-within del wrapper.
+export function Tooltip({ label, children, side = 'top', delay = 400 }) {
+  const isTouch = useIsTouch();
+  const [visible, setVisible] = React.useState(false);
+  const timer = React.useRef(null);
+
+  if (isTouch || !label) return children;
+
+  const show = () => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setVisible(true), delay);
+  };
+  const hide = () => {
+    clearTimeout(timer.current);
+    setVisible(false);
+  };
+
+  const pos = {
+    top:    'bottom-full left-1/2 -translate-x-1/2 mb-1.5',
+    bottom: 'top-full left-1/2 -translate-x-1/2 mt-1.5',
+    left:   'right-full top-1/2 -translate-y-1/2 mr-1.5',
+    right:  'left-full top-1/2 -translate-y-1/2 ml-1.5',
+  }[side];
+
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+    >
+      {children}
+      {visible && (
+        <span className={cx(
+          'absolute z-50 whitespace-nowrap px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider',
+          'bg-zinc-100 text-zinc-900 shadow-lg pointer-events-none',
+          'animate-in fade-in zoom-in-95 duration-100',
+          pos,
+        )}>
+          {label}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ─── BREADCRUMB ───────────────────────────────────────────────────────────────
+// Navegación contextual. items: [{ label, onClick? }]. El último item se
+// renderiza sin onClick (es la posición actual).
+export function Breadcrumb({ items = [], className = '' }) {
+  return (
+    <nav className={cx('flex items-center gap-1.5 text-xs text-zinc-500 min-w-0', className)} aria-label="Breadcrumb">
+      {items.map((it, i) => {
+        const last = i === items.length - 1;
+        return (
+          <React.Fragment key={i}>
+            {i > 0 && <Icon name="chevron-right" size={11} className="text-zinc-700 shrink-0" />}
+            {last || !it.onClick ? (
+              <span className={cx('truncate', last ? 'text-zinc-300 font-medium' : 'text-zinc-500')}>{it.label}</span>
+            ) : (
+              <button
+                type="button"
+                onClick={it.onClick}
+                className="truncate hover:text-zinc-200 transition-colors"
+              >
+                {it.label}
+              </button>
+            )}
+          </React.Fragment>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ─── SKELETON ─────────────────────────────────────────────────────────────────
+// Bloques placeholder con shimmer sutil. Communica estructura de los datos que
+// vienen — perceived performance (Doherty Threshold).
+export function Skeleton({ variant = 'line', count = 1, className = '' }) {
+  const items = Array.from({ length: count });
+  const base = 'animate-pulse bg-zinc-800/60 rounded';
+
+  if (variant === 'line') {
+    return (
+      <div className={cx('space-y-2', className)}>
+        {items.map((_, i) => (
+          <div key={i} className={cx(base, 'h-3', i === count - 1 ? 'w-4/6' : 'w-full')} />
+        ))}
+      </div>
+    );
+  }
+  if (variant === 'metric') {
+    return (
+      <div className={cx('rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 space-y-3', className)}>
+        <div className={cx(base, 'h-3 w-2/5')} />
+        <div className={cx(base, 'h-7 w-3/5')} />
+        <div className={cx(base, 'h-2 w-1/3')} />
+      </div>
+    );
+  }
+  if (variant === 'row') {
+    return (
+      <div className={cx('space-y-1.5', className)}>
+        {items.map((_, i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-zinc-800/60 bg-zinc-900/30">
+            <div className={cx(base, 'h-4 w-12 shrink-0')} />
+            <div className={cx(base, 'h-3 flex-1')} />
+            <div className={cx(base, 'h-4 w-16 shrink-0')} />
+            <div className={cx(base, 'h-4 w-20 shrink-0')} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (variant === 'card') {
+    return (
+      <div className={cx('rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 space-y-3', className)}>
+        <div className={cx(base, 'h-4 w-1/3')} />
+        <div className="space-y-2">
+          <div className={cx(base, 'h-3 w-full')} />
+          <div className={cx(base, 'h-3 w-5/6')} />
+          <div className={cx(base, 'h-3 w-4/6')} />
+        </div>
+      </div>
+    );
+  }
+  return <div className={cx(base, 'h-4 w-full', className)} />;
+}
+
 // ─── DATA TABLE ───────────────────────────────────────────────────────────────
-export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin registros', onRowClick, selectedId, renderExpanded }) {
+export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin registros', onRowClick, selectedId, renderExpanded, pageSize = 0 }) {
   const [sortKey, setSortKey] = React.useState(null);
   const [sortDir, setSortDir] = React.useState('asc');
+  const [page, setPage] = React.useState(0);
 
   const sorted = React.useMemo(() => {
     if (!sortKey) return data;
@@ -515,6 +897,18 @@ export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin r
     });
   }, [data, sortKey, sortDir, columns]);
 
+  // Paginación opcional — solo aplica si pageSize > 0 y hay más datos.
+  const paginated = React.useMemo(() => {
+    if (!pageSize || sorted.length <= pageSize) return sorted;
+    const start = page * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [sorted, page, pageSize]);
+
+  // Reset de página cuando cambian datos o sort
+  React.useEffect(() => { setPage(0); }, [data.length, sortKey, sortDir]);
+
+  const totalPages = pageSize ? Math.ceil(sorted.length / pageSize) : 1;
+
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortDir('asc'); }
@@ -526,13 +920,38 @@ export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin r
   // con espacio suficiente para la tabla real.
   const isPhone = useIsPhone();
 
+  const renderPagination = () => {
+    if (!pageSize || sorted.length <= pageSize) return null;
+    return (
+      <div className="flex items-center justify-between gap-3 px-3 py-2 border-t border-zinc-800/60 text-[11px] font-mono text-zinc-500">
+        <span>
+          {page * pageSize + 1}–{Math.min((page + 1) * pageSize, sorted.length)} de {sorted.length}
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+            className="grid place-items-center w-7 h-7 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-40 disabled:hover:bg-transparent"
+            aria-label="Página anterior"
+          ><Icon name="arrow-left" size={12} /></button>
+          <span className="px-2">{page + 1} / {totalPages}</span>
+          <button
+            type="button" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+            className="grid place-items-center w-7 h-7 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-40 disabled:hover:bg-transparent"
+            aria-label="Página siguiente"
+          ><Icon name="chevron-right" size={12} /></button>
+        </div>
+      </div>
+    );
+  };
+
   if (isPhone) {
     if (sorted.length === 0) {
       return <div className="py-10 text-center text-zinc-500 text-sm italic">{emptyMsg}</div>;
     }
     return (
+      <div>
       <div className="flex flex-col gap-2 p-3">
-        {sorted.map((row, idx) => (
+        {paginated.map((row, idx) => (
           <div key={row.id ?? idx}>
             <div
               onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -564,6 +983,8 @@ export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin r
             )}
           </div>
         ))}
+      </div>
+      {renderPagination()}
       </div>
     );
   }
@@ -599,7 +1020,7 @@ export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin r
         <tbody>
           {sorted.length === 0 ? (
             <tr><td colSpan={columns.length} className="py-10 text-center text-zinc-500 text-sm italic">{emptyMsg}</td></tr>
-          ) : sorted.map((row, idx) => (
+          ) : paginated.map((row, idx) => (
             <React.Fragment key={row.id ?? idx}>
               <tr
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -635,6 +1056,7 @@ export function DataTable({ columns, data, density = 'normal', emptyMsg = 'Sin r
           ))}
         </tbody>
       </table>
+      {renderPagination()}
     </div>
   );
 }
@@ -688,6 +1110,320 @@ export function MasterDetail({
     <div className="grid gap-4 items-start" style={{ gridTemplateColumns: cols }}>
       <div className="min-w-0">{first}</div>
       <div className="min-w-0">{second}</div>
+    </div>
+  );
+}
+
+// ─── COMMAND PALETTE ──────────────────────────────────────────────────────────
+// Modal de "command bar" estilo Linear/Notion. Búsqueda fuzzy (substring lower)
+// con navegación por teclado (↑/↓/Enter/Esc).
+//
+// commands: [{ id, label, hint?, icon?, keywords?, group?, onRun }]
+// open / onClose controla visibilidad. Atajo global Cmd+K / Ctrl+K se registra
+// con `useCommandPaletteShortcut(onOpen)` en App.
+export function CommandPalette({ open, onClose, commands = [], placeholder = 'Buscá un panel, ticket, OF, acción...' }) {
+  const [q, setQ] = React.useState('');
+  const [activeIdx, setActiveIdx] = React.useState(0);
+  const inputRef = React.useRef(null);
+  const listRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setQ(''); setActiveIdx(0);
+      // autofocus en el input al abrir
+      setTimeout(() => inputRef.current?.focus(), 30);
+    }
+  }, [open]);
+
+  // Filtro fuzzy simple
+  const filtered = React.useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return commands;
+    return commands.filter(c => {
+      const hay = [c.label, c.hint, c.group, ...(c.keywords || [])].filter(Boolean).join(' ').toLowerCase();
+      return needle.split(/\s+/).every(w => hay.includes(w));
+    });
+  }, [q, commands]);
+
+  // Agrupar por `group` preservando orden
+  const grouped = React.useMemo(() => {
+    const out = []; const idxMap = new Map();
+    filtered.forEach(c => {
+      const g = c.group || 'General';
+      if (!idxMap.has(g)) { idxMap.set(g, out.length); out.push({ group: g, items: [] }); }
+      out[idxMap.get(g)].items.push(c);
+    });
+    return out;
+  }, [filtered]);
+
+  React.useEffect(() => { setActiveIdx(0); }, [q]);
+
+  React.useEffect(() => {
+    if (activeIdx >= filtered.length) setActiveIdx(Math.max(0, filtered.length - 1));
+  }, [filtered, activeIdx]);
+
+  // Scroll auto al item activo
+  React.useEffect(() => {
+    const el = listRef.current?.querySelector(`[data-cmd-idx="${activeIdx}"]`);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [activeIdx]);
+
+  if (!open) return null;
+
+  const handleKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); onClose?.(); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIdx(i => Math.min(filtered.length - 1, i + 1));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIdx(i => Math.max(0, i - 1));
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const cmd = filtered[activeIdx];
+      if (cmd && cmd.onRun) { onClose?.(); cmd.onRun(); }
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-start justify-center pt-[10vh] px-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-xl rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden"
+      >
+        <div className="flex items-center gap-2 px-3.5 border-b border-zinc-800/80">
+          <Icon name="search" size={16} className="text-zinc-500 shrink-0" />
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder={placeholder}
+            className="flex-1 bg-transparent h-11 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
+          />
+          <Kbd>Esc</Kbd>
+        </div>
+        <div ref={listRef} className="max-h-[60vh] overflow-y-auto py-1">
+          {filtered.length === 0 ? (
+            <div className="py-10 text-center text-zinc-500 text-sm">Sin resultados</div>
+          ) : (
+            grouped.map((g) => (
+              <div key={g.group} className="py-1">
+                <div className="px-3 pt-1.5 pb-1 font-mono text-[10px] uppercase tracking-wider text-zinc-600">{g.group}</div>
+                {g.items.map((c) => {
+                  const i = filtered.indexOf(c);
+                  const active = i === activeIdx;
+                  return (
+                    <button
+                      key={c.id}
+                      data-cmd-idx={i}
+                      onMouseEnter={() => setActiveIdx(i)}
+                      onClick={() => { onClose?.(); c.onRun?.(); }}
+                      onKeyDown={handleKey}
+                      className={cx(
+                        'w-full flex items-center gap-3 px-3 py-2 text-left transition-colors',
+                        active ? 'bg-blue-500/10 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/60',
+                      )}
+                    >
+                      {c.icon && (
+                        <span className={cx('w-7 h-7 rounded-md grid place-items-center shrink-0',
+                          active ? 'bg-blue-500/20 text-blue-300' : 'bg-zinc-900 text-zinc-500')}>
+                          <Icon name={c.icon} size={14} />
+                        </span>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm truncate">{c.label}</div>
+                        {c.hint && <div className="text-[11px] text-zinc-500 truncate">{c.hint}</div>}
+                      </div>
+                      {c.shortcut && <Kbd>{c.shortcut}</Kbd>}
+                    </button>
+                  );
+                })}
+              </div>
+            ))
+          )}
+        </div>
+        <div className="px-3 py-1.5 border-t border-zinc-800/80 flex items-center justify-between text-[10px] text-zinc-600 font-mono">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1"><Kbd>↑</Kbd><Kbd>↓</Kbd> navegar</span>
+            <span className="flex items-center gap-1"><Kbd>Enter</Kbd> seleccionar</span>
+          </div>
+          <span className="flex items-center gap-1"><Kbd>Esc</Kbd> cerrar</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Hook que registra el atajo global Cmd+K / Ctrl+K.
+export function useCommandPaletteShortcut(onOpen) {
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        onOpen();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onOpen]);
+}
+
+// ─── NOTIFICATIONS BELL ───────────────────────────────────────────────────────
+// Campana en header con badge de no-leídas + drawer/popover con últimas N.
+// El "no leído" se calcula contra un cursor en localStorage (no-server-side por simplicidad).
+const NODE_LABELS_BELL = {
+  comercial: 'Comercial', administracion: 'Administración', desarrollo: 'Desarrollo',
+  compras: 'Compras', panol: 'Pañol', produccion: 'Producción', logistica: 'Logística',
+  soporte: 'Soporte',
+};
+const NODE_ACCENT_BELL = {
+  comercial: 'blue', administracion: 'violet', desarrollo: 'cyan',
+  compras: 'amber', panol: 'emerald', produccion: 'rose', logistica: 'orange',
+  soporte: 'rose',
+};
+
+export function NotificationsBell({ onNavigate }) {
+  const [open, setOpen] = React.useState(false);
+  const [items, setItems] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [lastSeen, setLastSeen] = React.useState(() => {
+    try { return Number(localStorage.getItem('notif:last-seen') || 0); } catch { return 0; }
+  });
+  const ref = React.useRef(null);
+
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const { api } = await import('../api');
+      const data = await api.events.recent(50);
+      setItems(data || []);
+    } catch { /* silent */ } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => { refresh(); }, [refresh]);
+
+  // Click afuera para cerrar + escape
+  React.useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  const unread = items.filter(n => n.id > lastSeen).length;
+
+  const handleOpen = () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    refresh();
+    // Marcar todos como vistos cuando abre
+    if (items.length > 0) {
+      const top = items[0].id;
+      try { localStorage.setItem('notif:last-seen', String(top)); } catch { /* ignore */ }
+      setLastSeen(top);
+    }
+  };
+
+  const fmtTimeAgo = (iso) => {
+    const d = new Date(iso);
+    const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (sec < 60) return 'recién';
+    if (sec < 3600) return `${Math.floor(sec / 60)}m`;
+    if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
+    return `${Math.floor(sec / 86400)}d`;
+  };
+
+  const handleItemClick = (n) => {
+    setOpen(false);
+    if (onNavigate) onNavigate(n);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={handleOpen}
+        aria-label="Notificaciones"
+        aria-expanded={open}
+        className="relative grid place-items-center w-9 h-9 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+      >
+        <Icon name="bell" size={16} />
+        {unread > 0 && (
+          <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white grid place-items-center font-mono">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-zinc-800 bg-zinc-950 shadow-xl overflow-hidden z-50">
+          <div className="px-3 py-2.5 border-b border-zinc-800/60 flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-200 uppercase tracking-wider font-mono">Notificaciones</span>
+            <button
+              type="button"
+              onClick={refresh}
+              className="text-[10px] text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider"
+            >
+              Recargar
+            </button>
+          </div>
+          <div className="max-h-[420px] overflow-y-auto">
+            {loading && items.length === 0 ? (
+              <div className="p-3"><Skeleton variant="row" count={4} /></div>
+            ) : items.length === 0 ? (
+              <div className="px-4 py-10 text-center text-zinc-500 text-xs">
+                Sin notificaciones recientes
+              </div>
+            ) : (
+              <ul className="divide-y divide-zinc-800/60">
+                {items.map(n => {
+                  const isNew = n.id > lastSeen;
+                  const accent = NODE_ACCENT_BELL[n.source] || 'slate';
+                  return (
+                    <li key={n.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleItemClick(n)}
+                        className={cx(
+                          'w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-900/60 transition-colors',
+                          isNew && 'bg-blue-500/[0.03]',
+                        )}
+                      >
+                        <div className="mt-1 shrink-0">
+                          <Badge accent={accent} dot>{NODE_LABELS_BELL[n.source] || n.source}</Badge>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="text-xs text-zinc-200 leading-snug">{n.message}</p>
+                            <span className="font-mono text-[10px] text-zinc-500 shrink-0">{fmtTimeAgo(n.created_at)}</span>
+                          </div>
+                          {n.ref_type && n.ref_id && (
+                            <p className="font-mono text-[10px] text-zinc-600 mt-0.5">{n.ref_type} #{n.ref_id}</p>
+                          )}
+                        </div>
+                        {isNew && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -962,11 +1698,10 @@ export function ModuleHeader({ module, subtitle, actions }) {
           {subtitle && <p className="hidden sm:block text-xs text-zinc-500 mt-1 truncate">{subtitle}</p>}
         </div>
       </div>
-      {actions && (
-        <div className="flex w-full items-center gap-2 min-w-0 sm:w-auto [&>*]:min-w-0">
-          {actions}
-        </div>
-      )}
+      <div className="flex w-full items-center gap-2 min-w-0 sm:w-auto sm:ml-auto [&>*:not(.shrink-0)]:min-w-0">
+        {actions}
+        <NotificationsBell />
+      </div>
     </header>
   );
 }

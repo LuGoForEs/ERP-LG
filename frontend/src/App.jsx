@@ -1,5 +1,6 @@
 import React from 'react';
-import { ToastProvider, Sidebar, ShortcutsDialog, useGlobalShortcuts, SidebarToggleProvider } from './components/primitives';
+import { ToastProvider, Sidebar, ShortcutsDialog, useGlobalShortcuts, SidebarToggleProvider, CommandPalette, useCommandPaletteShortcut, ConfirmProvider } from './components/primitives';
+import { V2_MODULES } from './data/mock';
 import { ArticulosProvider } from './contexts/ArticulosContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PermissionsProvider, usePermissions } from './contexts/PermissionsContext';
@@ -50,6 +51,7 @@ function AppInner() {
   const [newSignal, setNewSignal] = React.useState(0);
   const [show2FA, setShow2FA] = React.useState(false);
   const [showContactSoporte, setShowContactSoporte] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [currentUser, setCurrentUser] = React.useState(user);
 
@@ -70,6 +72,34 @@ function AppInner() {
   }, [allowedPanels]);
 
   useGlobalShortcuts(safeSetActive, () => setShowShortcuts(true), () => setNewSignal(s => s + 1), allowedPanels);
+  useCommandPaletteShortcut(() => setPaletteOpen(true));
+
+  // Comandos del palette generados dinámicamente desde paneles permitidos + acciones globales
+  const paletteCommands = React.useMemo(() => {
+    const list = [];
+    V2_MODULES.forEach(m => {
+      if (allowedPanels.has(m.id)) {
+        list.push({
+          id: `nav:${m.id}`, label: `Ir a ${m.name}`, hint: `Atajo: G + ${m.shortcut.toUpperCase()}`,
+          group: 'Navegación', icon: 'chevron-right', keywords: [m.id, m.name],
+          shortcut: m.shortcut.toUpperCase(), onRun: () => safeSetActive(m.id),
+        });
+      }
+    });
+    list.push(
+      { id: 'act:new', label: 'Nuevo en panel actual', hint: 'Abre el diálogo de creación', group: 'Acciones',
+        icon: 'plus', shortcut: 'N', onRun: () => setNewSignal(s => s + 1) },
+      { id: 'act:shortcuts', label: 'Ver atajos de teclado', group: 'Acciones',
+        icon: 'keyboard', shortcut: '?', onRun: () => setShowShortcuts(true) },
+      { id: 'act:soporte', label: 'Contactar a soporte', group: 'Acciones',
+        icon: 'mail', onRun: () => setShowContactSoporte(true) },
+      { id: 'act:2fa', label: currentUser?.totp_enabled ? 'Gestionar 2FA' : 'Activar 2FA', group: 'Acciones',
+        icon: 'shield', onRun: () => setShow2FA(true) },
+      { id: 'act:logout', label: 'Cerrar sesión', group: 'Acciones',
+        icon: 'log-out', onRun: () => logout() },
+    );
+    return list;
+  }, [allowedPanels, safeSetActive, currentUser, logout]);
 
   const handleUpdated2FA = async () => {
     try { const u = await api.auth.me(); setCurrentUser(u); } catch { /* ignore */ }
@@ -154,6 +184,11 @@ function AppInner() {
           open={showContactSoporte}
           onClose={() => setShowContactSoporte(false)}
         />
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          commands={paletteCommands}
+        />
       </div>
       </SidebarToggleProvider>
     </ArticulosProvider>
@@ -165,9 +200,11 @@ export default function App() {
     <AuthProvider>
       <PermissionsProvider>
         <ToastProvider>
-          <NotificationsProvider>
-            <AppInner />
-          </NotificationsProvider>
+          <ConfirmProvider>
+            <NotificationsProvider>
+              <AppInner />
+            </NotificationsProvider>
+          </ConfirmProvider>
         </ToastProvider>
       </PermissionsProvider>
     </AuthProvider>

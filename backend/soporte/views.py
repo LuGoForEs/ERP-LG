@@ -486,6 +486,21 @@ class TicketAttachmentListCreateView(APIView):
                 return Response({'detail': err_msg}, status=status.HTTP_400_BAD_REQUEST)
 
         created = [_attach_file(ticket, f, request.user) for f in files]
+
+        # Notificar a soporte que hay nuevo adjunto (excepto si el que sube ya es soporte).
+        try:
+            if not can_access_soporte_features(request.user):
+                emit_event(
+                    source='comercial',
+                    targets=['soporte'],
+                    event_type='ticket_adjunto',
+                    message=f'Nuevo adjunto en ticket #{ticket.id}',
+                    ref_type='ticket',
+                    ref_id=ticket.id,
+                )
+        except Exception:
+            pass
+
         return Response(
             {'data': TicketAttachmentSerializer(created, many=True).data},
             status=status.HTTP_201_CREATED,

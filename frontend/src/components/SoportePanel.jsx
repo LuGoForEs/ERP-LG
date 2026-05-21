@@ -1,9 +1,10 @@
 import React from 'react';
 import {
   cx, Icon, Button, Input, Textarea, Field, Card, CardHeader, CardTitle,
-  Badge, EmptyState, ModuleHeader, Tabs, Toggle, useToast,
+  Badge, EmptyState, ModuleHeader, Tabs, Toggle, Skeleton, useFileDrop, useToast, useConfirm,
 } from './primitives';
 import { api } from '../api';
+import { useNodeEvents } from '../contexts/NotificationsContext';
 
 const ATTACH_MAX_FILES = 5;
 const ATTACH_MAX_SIZE = 10 * 1024 * 1024;
@@ -111,7 +112,7 @@ function TrazabilidadTab() {
         </div>
         <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/60">
           {loadingList ? (
-            <div className="px-3 py-6 text-zinc-500 text-xs">Cargando...</div>
+            <div className="p-3"><Skeleton variant="row" count={4} /></div>
           ) : ofs.length === 0 ? (
             <EmptyState icon="briefcase" msg="Sin OF" hint="Probá otro término" />
           ) : (
@@ -150,7 +151,7 @@ function TrazabilidadTab() {
           {!selected ? (
             <EmptyState icon="compass" msg="Elegí una orden" hint="Vas a ver toda la historia de cambios desde su creación." />
           ) : loadingTl ? (
-            <div className="text-zinc-500 text-sm">Cargando timeline...</div>
+            <div className="space-y-2"><Skeleton variant="card" count={1} /><Skeleton variant="card" count={1} /><Skeleton variant="card" count={1} /></div>
           ) : !timeline || timeline.timeline.length === 0 ? (
             <EmptyState icon="file-text" msg="Sin historial" hint="Aún no hay registros para esta OF." />
           ) : (
@@ -243,6 +244,7 @@ function TicketsTab() {
   const [expanded, setExpanded] = React.useState(null);
   const [reply, setReply] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
+  const confirm = useConfirm();
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -257,6 +259,10 @@ function TicketsTab() {
   }, [toast]);
 
   React.useEffect(() => { load(); }, [load]);
+
+  // Realtime: cuando soporte recibe un evento (nuevo ticket, comentario,
+  // adjunto subido por el dueño), refrescamos la bandeja entera.
+  useNodeEvents('soporte', load);
 
   const updateTicket = async (id, patch) => {
     try {
@@ -285,13 +291,28 @@ function TicketsTab() {
     }
   };
 
+  // Al expandir un ticket, refrescamos su detalle desde el server para
+  // captar adjuntos/comentarios que el dueño haya agregado después de
+  // que la bandeja se cargara por primera vez.
+  const expandAndRefresh = async (id) => {
+    if (expanded === id) { setExpanded(null); return; }
+    setExpanded(id);
+    setReply('');
+    try {
+      const fresh = await api.soporte.getTicket(id);
+      setTickets(ts => ts.map(x => x.id === id ? fresh : x));
+    } catch (e) {
+      // si falla el refresh dejamos la versión que ya tenemos
+    }
+  };
+
   return (
     <Card>
       <CardHeader actions={<Button variant="ghost" size="sm" icon="search" onClick={load}>Recargar</Button>}>
         <CardTitle hint={tickets.length}>Bandeja de tickets</CardTitle>
       </CardHeader>
       {loading ? (
-        <div className="px-4 py-10 text-zinc-500 text-sm">Cargando...</div>
+        <div className="p-4"><Skeleton variant="row" count={5} /></div>
       ) : tickets.length === 0 ? (
         <EmptyState icon="mail" msg="Sin tickets" hint="Cuando alguien escriba a soporte aparecerá acá." />
       ) : (
@@ -301,7 +322,7 @@ function TicketsTab() {
             return (
               <li key={t.id}>
                 <button
-                  onClick={() => { setExpanded(isOpen ? null : t.id); setReply(''); }}
+                  onClick={() => expandAndRefresh(t.id)}
                   className="w-full text-left px-4 py-3 hover:bg-zinc-900/40 transition-colors"
                 >
                   <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -326,15 +347,14 @@ function TicketsTab() {
 
                 {isOpen && (() => {
                   const isClosed = t.status === 'cerrado';
-                  const confirmAndClose = () => {
-                    if (window.confirm(
-                      `¿Cerrar definitivamente el ticket #${t.numero}?\n\n`
-                      + 'Una vez cerrado NO se podrán modificar parámetros, '
-                      + 'agregar comentarios, ni subir/eliminar adjuntos. '
-                      + 'Esta acción es irreversible.'
-                    )) {
-                      updateTicket(t.id, { status: 'cerrado' });
-                    }
+                  const confirmAndClose = async () => {
+                    const ok = await confirm({
+                      title: `Cerrar ticket #${t.numero}`,
+                      description: 'Una vez cerrado NO se podrán modificar parámetros, agregar comentarios, ni subir/eliminar adjuntos. Esta acción es irreversible.',
+                      confirmLabel: 'Cerrar definitivamente',
+                      variant: 'danger',
+                    });
+                    if (ok) updateTicket(t.id, { status: 'cerrado' });
                   };
                   return (
                   <div className="px-4 pb-4 space-y-3 border-t border-zinc-800/60 bg-zinc-950/40">
@@ -486,6 +506,7 @@ export default function SoportePanel() {
 
 function AttachmentsSection({ ticket, onChanged, readOnly = false }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const inputRef = React.useRef(null);
   const [busy, setBusy] = React.useState(false);
   const attachments = ticket.attachments || [];
@@ -532,7 +553,13 @@ function AttachmentsSection({ ticket, onChanged, readOnly = false }) {
   };
 
   const handleDelete = async (att) => {
-    if (!window.confirm(`Eliminar "${att.original_name}"?`)) return;
+    const ok = await confirm({
+      title: 'Eliminar adjunto',
+      description: `Se eliminará "${att.original_name}". Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await api.soporte.deleteAttachment(ticket.id, att.id);
       toast({ msg: 'Adjunto eliminado' });
@@ -541,6 +568,8 @@ function AttachmentsSection({ ticket, onChanged, readOnly = false }) {
       toast({ type: 'error', msg: e.message || 'No se pudo eliminar' });
     }
   };
+
+  const { dragActive, dropProps } = useFileDrop(handleUpload, { disabled: readOnly || busy });
 
   return (
     <div>
@@ -567,38 +596,58 @@ function AttachmentsSection({ ticket, onChanged, readOnly = false }) {
         onChange={e => handleUpload(e.target.files)}
         className="hidden"
       />
-      {attachments.length === 0 ? (
-        <div className="rounded-md border border-dashed border-zinc-800 px-3 py-2 text-xs text-zinc-600 text-center">
-          Sin adjuntos
-        </div>
-      ) : (
-        <ul className="space-y-1.5">
-          {attachments.map(att => (
-            <li key={att.id} className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950/40 px-2.5 py-1.5">
-              <Icon name={fileIcon(att.content_type, att.original_name)} size={14} className="text-zinc-500 shrink-0" />
-              <button
-                type="button"
-                onClick={() => handleDownload(att)}
-                className="text-xs text-zinc-200 hover:text-blue-300 truncate flex-1 text-left"
-              >
-                {att.original_name}
-              </button>
-              <span className="font-mono text-[10px] text-zinc-500 shrink-0">{fmtSize(att.size)}</span>
-              <span className="font-mono text-[10px] text-zinc-600 shrink-0 hidden sm:inline">{att.uploaded_by_name || ''}</span>
-              {!readOnly && (
+      <div
+        {...dropProps}
+        className={cx(
+          'rounded-md transition-colors',
+          dragActive && 'ring-2 ring-blue-500/60 bg-blue-500/5',
+        )}
+      >
+        {attachments.length === 0 ? (
+          <div className={cx(
+            'rounded-md border border-dashed px-3 py-3 text-xs text-center transition-colors',
+            dragActive ? 'border-blue-500 text-blue-300' : 'border-zinc-800 text-zinc-600',
+          )}>
+            {readOnly
+              ? 'Sin adjuntos'
+              : dragActive
+                ? 'Soltá los archivos aquí'
+                : 'Sin adjuntos · arrastrá archivos o usá + Subir archivo'}
+          </div>
+        ) : (
+          <ul className="space-y-1.5">
+            {attachments.map(att => (
+              <li key={att.id} className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950/40 px-2.5 py-1.5">
+                <Icon name={fileIcon(att.content_type, att.original_name)} size={14} className="text-zinc-500 shrink-0" />
                 <button
                   type="button"
-                  onClick={() => handleDelete(att)}
-                  aria-label="Eliminar adjunto"
-                  className="text-zinc-600 hover:text-rose-400"
+                  onClick={() => handleDownload(att)}
+                  className="text-xs text-zinc-200 hover:text-blue-300 truncate flex-1 text-left"
                 >
-                  <Icon name="trash" size={13} />
+                  {att.original_name}
                 </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                <span className="font-mono text-[10px] text-zinc-500 shrink-0">{fmtSize(att.size)}</span>
+                <span className="font-mono text-[10px] text-zinc-600 shrink-0 hidden sm:inline">{att.uploaded_by_name || ''}</span>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(att)}
+                    aria-label="Eliminar adjunto"
+                    className="text-zinc-600 hover:text-rose-400"
+                  >
+                    <Icon name="trash" size={13} />
+                  </button>
+                )}
+              </li>
+            ))}
+            {dragActive && (
+              <li className="rounded-md border border-dashed border-blue-500 bg-blue-500/5 px-3 py-2 text-xs text-blue-300 text-center">
+                Soltá para agregar más archivos
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

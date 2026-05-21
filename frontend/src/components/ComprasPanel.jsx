@@ -5,7 +5,7 @@ import {
   cx, Icon, Button,
   EstadoBadge, Badge, Card, CardHeader, CardTitle,
   Metric, useToast, useSearchShortcut,
-  SectionLabel, EmptyState, DataTable, ModuleHeader,
+  SectionLabel, EmptyState, DataTable, ModuleHeader, Skeleton,
 } from './primitives';
 
 export default function ComprasPanel() {
@@ -202,8 +202,13 @@ export default function ComprasPanel() {
 
   if (loading) return (
     <div>
-      <ModuleHeader module="compras" subtitle="Cargando..." />
-      <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
+      <ModuleHeader module="compras" />
+      <div className="px-4 sm:px-7 py-5 space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} variant="metric" />)}
+        </div>
+        <Skeleton variant="row" count={6} />
+      </div>
     </div>
   );
 

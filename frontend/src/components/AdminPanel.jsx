@@ -4,7 +4,7 @@ import {
   cx, Icon, Button, Textarea, Field,
   Badge, EstadoBadge, Card, CardHeader, CardTitle,
   Metric, useToast, Label, Tabs, useSearchShortcut,
-  SectionLabel, EmptyState, ModuleHeader, MasterDetail,
+  SectionLabel, EmptyState, ModuleHeader, MasterDetail, Skeleton,
 } from './primitives';
 import { usePermissions } from '../contexts/PermissionsContext';
 import { useNodeEvents } from '../contexts/NotificationsContext';
@@ -165,8 +165,13 @@ export default function AdminPanel() {
 
   if (loading) return (
     <div>
-      <ModuleHeader module="administracion" subtitle="Cargando..." />
-      <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
+      <ModuleHeader module="administracion" />
+      <div className="px-4 sm:px-7 py-5 space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} variant="metric" />)}
+        </div>
+        <Skeleton variant="row" count={6} />
+      </div>
     </div>
   );
 

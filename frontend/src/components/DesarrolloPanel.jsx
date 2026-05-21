@@ -6,7 +6,7 @@ import {
   cx, Icon, Button, Input, Field, Select,
   EstadoBadge, Badge, Card, CardHeader, CardTitle,
   Metric, useToast, Tabs, useSearchShortcut,
-  EmptyState, DataTable, ModuleHeader, MasterDetail, useIsPhone,
+  EmptyState, DataTable, ModuleHeader, MasterDetail, useIsPhone, Skeleton,
 } from './primitives';
 
 const V2_EMPTY_ITEM = { cantidad: '', unidad: 'u', descripcion: '', uso_en: '', observaciones: '' };
@@ -140,8 +140,13 @@ export default function DesarrolloPanel({ openNewSignal }) {
 
   if (loading) return (
     <div>
-      <ModuleHeader module="desarrollo" subtitle="Cargando..." />
-      <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando datos...</div>
+      <ModuleHeader module="desarrollo" />
+      <div className="px-4 sm:px-7 py-5 space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} variant="metric" />)}
+        </div>
+        <Skeleton variant="row" count={6} />
+      </div>
     </div>
   );
 

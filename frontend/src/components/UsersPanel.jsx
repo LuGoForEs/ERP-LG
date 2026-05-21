@@ -3,7 +3,7 @@ import { api } from '../api';
 import {
   cx, Icon, Button, Input, Field, Select,
   Badge, Card, CardHeader, CardTitle,
-  useToast, Dialog, ModuleHeader, EmptyState, MasterDetail,
+  useToast, Dialog, ModuleHeader, EmptyState, MasterDetail, Skeleton,
 } from './primitives';
 
 const ROLE_LABELS = {
@@ -293,7 +293,9 @@ export default function UsersPanel() {
       />
 
       {loading ? (
-        <div className="px-4 sm:px-7 py-10 text-zinc-500 text-sm">Cargando usuarios...</div>
+        <div className="px-4 sm:px-7 py-5">
+          <Skeleton variant="row" count={8} />
+        </div>
       ) : (
         <div className="px-4 sm:px-7 py-5">
          <MasterDetail

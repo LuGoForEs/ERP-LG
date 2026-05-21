@@ -52,6 +52,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'auth_erp.middleware.CloudflareIPMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -133,6 +134,21 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CORS Settings
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', cast=Csv(), default='http://localhost:5173')
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-language',
+    'authorization',
+    'content-type',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+CORS_EXPOSE_HEADERS = [
+    'cf-ray',
+    'retry-after',
+    'x-request-id',
+]
 
 # Security settings (active when DEBUG=False)
 if not DEBUG:
@@ -156,6 +172,48 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
+    'EXCEPTION_HANDLER': 'config.exception_handler.cloudflare_aware_exception_handler',
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon':           config('THROTTLE_ANON',           default='120/min'),
+        'user':           config('THROTTLE_USER',           default='600/min'),
+        'login':          config('THROTTLE_LOGIN',          default='5/min'),
+        'password_reset': config('THROTTLE_PASSWORD_RESET', default='3/min'),
+        'activate':       config('THROTTLE_ACTIVATE',       default='5/min'),
+    },
+}
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'loggers': {
+        'cloudflare_adapt': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
 }
 
 # JWT Settings
@@ -186,6 +244,22 @@ from celery.schedules import crontab  # noqa: E402
 REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
+
+# Cache (Redis DB 1 — DB 0 queda para Celery broker/results)
+def _cache_url():
+    # Reemplaza el número de DB final por 1 si el REDIS_URL termina en /N.
+    base = REDIS_URL
+    if '/' in base.rsplit('//', 1)[-1]:
+        base = base.rsplit('/', 1)[0]
+    return f'{base}/1'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': config('CACHE_URL', default=_cache_url()),
+        'TIMEOUT': 300,
+    },
+}
 CELERY_TIMEZONE = 'America/Argentina/Buenos_Aires'
 CELERY_ENABLE_UTC = True
 CELERY_BEAT_SCHEDULE = {

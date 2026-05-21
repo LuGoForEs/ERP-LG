@@ -12,10 +12,12 @@ from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission, SAFE_METHODS
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from .models import UserProfile, UserRole, PendingSystemAdmin
+from .throttles import LoginRateThrottle
 from .emails import (
     send_activation_email, send_reset_email,
     send_cred_change_email, send_admin_creation_confirm_email,
@@ -161,6 +163,8 @@ def _issue_tokens(user, response_data=None):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [LoginRateThrottle]
+    throttle_scope = 'login'
 
     def post(self, request):
         email     = request.data.get('email', '').strip()
@@ -509,8 +513,13 @@ class UserDetailView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'password_reset'
 
     def post(self, request):
+        if not _verify_recaptcha(request.data.get('turnstile_token', '')):
+            return Response({'detail': 'Verificación de seguridad fallida. Intentá de nuevo.'}, status=400)
+
         email    = request.data.get('email', '').strip().lower()
         dni      = request.data.get('dni', '').strip()
         roles    = request.data.get('roles', [])
@@ -616,8 +625,13 @@ class ActivationLinkView(APIView):
 
 class ResendActivationView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'activate'
 
     def post(self, request):
+        if not _verify_recaptcha(request.data.get('turnstile_token', '')):
+            return Response({'detail': 'Verificación de seguridad fallida. Intentá de nuevo.'}, status=400)
+
         email = request.data.get('email', '').strip().lower()
         if not email:
             return Response({'detail': 'El email es requerido.'}, status=400)

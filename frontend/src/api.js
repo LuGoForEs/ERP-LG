@@ -14,7 +14,11 @@ export function setLogoutHandler(fn) { _onLogout = fn; }
 
 async function _tryRefresh() {
   if (_refreshing) return _refreshing;
-  _refreshing = fetch(`${BASE}/auth/refresh/`, { method: 'POST', credentials: 'include' })
+  _refreshing = fetch(`${BASE}/auth/refresh/`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+  })
     .then(async r => {
       if (!r.ok) throw new Error('refresh failed');
       const { access } = await r.json();
@@ -30,30 +34,39 @@ async function _tryRefresh() {
   return _refreshing;
 }
 
-async function request(method, path, body, isFormData = false) {
-  const makeOpts = (token) => {
-    const opts = { method, headers: {}, credentials: 'include' };
-    if (token) opts.headers['Authorization'] = `Bearer ${token}`;
-    if (!isFormData && body !== undefined) {
-      opts.headers['Content-Type'] = 'application/json';
-      opts.body = JSON.stringify(body);
-    } else if (body !== undefined) {
-      opts.body = body;
-    }
-    return opts;
-  };
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+const CF_BLOCK_STATUSES  = new Set([403, 503, 520, 521, 522, 523, 524, 525, 526, 527]);
 
-  let res = await fetch(`${BASE}${path}`, makeOpts(_accessToken));
+function _looksLikeCloudflareBlock(res, contentType) {
+  if (!CF_BLOCK_STATUSES.has(res.status)) return false;
+  if (res.headers.get('cf-mitigated')) return true;
+  return contentType.includes('text/html');
+}
 
-  if (res.status === 401 && path !== '/auth/login/' && path !== '/auth/refresh/') {
-    const newToken = await _tryRefresh();
-    if (newToken) {
-      res = await fetch(`${BASE}${path}`, makeOpts(newToken));
-    }
+function _buildError({ status, message, cfRay, isCloudflareBlock = false }) {
+  const err = new Error(message);
+  err.status = status;
+  err.cfRay = cfRay || '';
+  err.isCloudflareBlock = isCloudflareBlock;
+  return err;
+}
+
+async function _parseError(res) {
+  const cfRay = res.headers.get('cf-ray') || '';
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+
+  if (_looksLikeCloudflareBlock(res, contentType)) {
+    const suffix = cfRay ? ` (CF-Ray: ${cfRay})` : '';
+    return _buildError({
+      status: res.status,
+      message: `La verificación de seguridad bloqueó la solicitud${suffix}. Recargá la página y volvé a intentar; si persiste, avisá al administrador con ese código.`,
+      cfRay,
+      isCloudflareBlock: true,
+    });
   }
 
-  if (!res.ok) {
-    let msg = `Error ${res.status}`;
+  let msg = `Error ${res.status}`;
+  if (contentType.includes('application/json')) {
     try {
       const j = await res.json();
       msg = j.detail || j.message ||
@@ -61,8 +74,53 @@ async function request(method, path, body, isFormData = false) {
         Object.values(j).find(v => typeof v === 'string') ||
         JSON.stringify(j);
     } catch { /* ignore */ }
-    throw new Error(msg);
   }
+  return _buildError({ status: res.status, message: msg, cfRay });
+}
+
+function _delayMs(headerValue) {
+  if (!headerValue) return 1000;
+  const n = parseInt(headerValue, 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n * 1000, 500), 5000) : 1000;
+}
+
+async function _fetchWithRetry(url, opts) {
+  let res = await fetch(url, opts);
+  if (RETRYABLE_STATUSES.has(res.status)) {
+    const wait = _delayMs(res.headers.get('retry-after'));
+    await new Promise(r => setTimeout(r, wait));
+    res = await fetch(url, opts);
+  }
+  return res;
+}
+
+async function request(method, path, body, isFormData = false) {
+  const makeOpts = (token) => {
+    const headers = {
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const opts = { method, headers, credentials: 'include' };
+    if (!isFormData && body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    } else if (body !== undefined) {
+      opts.body = body;
+    }
+    return opts;
+  };
+
+  let res = await _fetchWithRetry(`${BASE}${path}`, makeOpts(_accessToken));
+
+  if (res.status === 401 && path !== '/auth/login/' && path !== '/auth/refresh/') {
+    const newToken = await _tryRefresh();
+    if (newToken) {
+      res = await _fetchWithRetry(`${BASE}${path}`, makeOpts(newToken));
+    }
+  }
+
+  if (!res.ok) throw await _parseError(res);
   if (res.status === 204) return null;
   return res.json();
 }
@@ -74,28 +132,31 @@ const patch = (path, b, f)     => request('PATCH',  path, b, f);
 const del   = path             => request('DELETE', path);
 
 async function downloadBlob(path) {
-  const makeOpts = (token) => ({
-    method: 'GET',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    credentials: 'include',
-  });
-  let res = await fetch(`${BASE}${path}`, makeOpts(_accessToken));
+  const makeOpts = (token) => {
+    const headers = {
+      'Accept': 'application/octet-stream, */*',
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return { method: 'GET', headers, credentials: 'include' };
+  };
+  let res = await _fetchWithRetry(`${BASE}${path}`, makeOpts(_accessToken));
   if (res.status === 401) {
     const newToken = await _tryRefresh();
-    if (newToken) res = await fetch(`${BASE}${path}`, makeOpts(newToken));
+    if (newToken) res = await _fetchWithRetry(`${BASE}${path}`, makeOpts(newToken));
   }
-  if (!res.ok) {
-    let msg = `Error ${res.status}`;
-    try { const j = await res.json(); msg = j.detail || j.message || msg; } catch { /* ignore */ }
-    throw new Error(msg);
-  }
+  if (!res.ok) throw await _parseError(res);
   return res.blob();
 }
 
 export const api = {
   auth: {
     login:       body         => post('/auth/login/', body).then(r => r),
-    refresh:     ()           => fetch(`${BASE}/auth/refresh/`, { method: 'POST', credentials: 'include' }).then(r => r.json()),
+    refresh:     ()           => fetch(`${BASE}/auth/refresh/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    }).then(r => r.json()),
     logout:      ()           => post('/auth/logout/'),
     me:          ()           => get('/auth/me/'),
     setup2fa:    ()           => get('/auth/2fa/setup/'),
@@ -172,6 +233,10 @@ export const api = {
     createDespacho:        body => post('/logistica/despachos', body).then(r => r.data),
     solicitarAutorizacion: id   => post(`/logistica/despachos/${id}/solicitar-autorizacion`).then(r => r.data),
     ejecutar:              id   => post(`/logistica/despachos/${id}/ejecutar`).then(r => r.data),
+  },
+
+  events: {
+    recent: (limit) => get(`/events/recent${limit ? `?limit=${limit}` : ''}`).then(r => r.data),
   },
 
   soporte: {

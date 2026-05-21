@@ -2,55 +2,20 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api';
 import { cx } from './primitives';
+import TurnstileWidget from './TurnstileWidget';
 
-const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '1x00000000000000000000AA';
-
-function useTurnstile(onToken, onExpire) {
-  const containerRef = React.useRef(null);
-  const widgetId = React.useRef(null);
-
-  const reset = React.useCallback(() => {
-    if (widgetId.current !== null && window.grecaptcha) {
-      window.grecaptcha.reset(widgetId.current);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    let intervalId = null;
-
-    const render = () => {
-      if (cancelled || !containerRef.current || widgetId.current !== null) return;
-      widgetId.current = window.grecaptcha.render(containerRef.current, {
-        sitekey: SITE_KEY,
-        theme: 'dark',
-        size: 'normal',
-        callback:           (token) => onToken(token),
-        'expired-callback': ()      => onExpire(),
-        'error-callback':   ()      => onExpire(),
-      });
-    };
-
-    if (window.grecaptcha?.render) {
-      render();
-    } else {
-      intervalId = setInterval(() => {
-        if (window.grecaptcha?.render) { clearInterval(intervalId); render(); }
-      }, 100);
-    }
-
-    return () => {
-      cancelled = true;
-      clearInterval(intervalId);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return { containerRef, reset };
-}
-
-function FieldError({ msg }) {
+function FieldError({ msg, cfRay }) {
   if (!msg) return null;
-  return <p className="text-xs text-rose-400 mt-1">{msg}</p>;
+  return (
+    <div className="mt-1 space-y-1">
+      <p className="text-xs text-rose-400">{msg}</p>
+      {cfRay && (
+        <p className="text-[10px] font-mono text-zinc-500 select-all">
+          Código de soporte: <span className="text-zinc-300">{cfRay}</span>
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function LoginPage() {
@@ -61,14 +26,17 @@ export default function LoginPage() {
 
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
-  const [turnstileToken, setTurnstileToken] = React.useState('');
+  const [loginToken, setLoginToken] = React.useState('');
   const [error, setError] = React.useState('');
+  const [errorCfRay, setErrorCfRay] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [code, setCode] = React.useState('');
 
   const [activateEmail, setActivateEmail] = React.useState('');
+  const [activateToken, setActivateToken] = React.useState('');
   const [activateError, setActivateError] = React.useState('');
+  const [activateErrorCfRay, setActivateErrorCfRay] = React.useState('');
 
   const ALL_ROLES = [
     { value: 'comercial',      label: 'Comercial' },
@@ -83,7 +51,26 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = React.useState('');
   const [resetDni, setResetDni] = React.useState('');
   const [resetRoles, setResetRoles] = React.useState([]);
+  const [resetToken, setResetToken] = React.useState('');
   const [resetError, setResetError] = React.useState('');
+  const [resetErrorCfRay, setResetErrorCfRay] = React.useState('');
+
+  const loginCaptchaRef    = React.useRef(null);
+  const activateCaptchaRef = React.useRef(null);
+  const resetCaptchaRef    = React.useRef(null);
+
+  const setLoginErr = (err) => {
+    setError(err?.message || '');
+    setErrorCfRay(err?.cfRay || '');
+  };
+  const setActivateErr = (err) => {
+    setActivateError(err?.message || '');
+    setActivateErrorCfRay(err?.cfRay || '');
+  };
+  const setResetErr = (err) => {
+    setResetError(err?.message || '');
+    setResetErrorCfRay(err?.cfRay || '');
+  };
 
   const toggleResetRole = (val) => {
     setResetRoles(prev => prev.includes(val) ? prev.filter(r => r !== val) : [...prev, val]);
@@ -92,17 +79,21 @@ export default function LoginPage() {
   const handleReset = async (e) => {
     e.preventDefault();
     if (!resetEmail.trim() || !resetDni.trim() || resetRoles.length === 0) return;
-    setResetError('');
+    if (!resetToken) { setResetError('Completá la verificación de seguridad.'); return; }
+    setResetErr(null);
     setLoading(true);
     try {
       await api.auth.requestPasswordReset({
         email: resetEmail.trim().toLowerCase(),
         dni: resetDni.trim(),
         roles: resetRoles,
+        turnstile_token: resetToken,
       });
       setView('reset-sent');
     } catch (err) {
-      setResetError(err.message);
+      setResetErr(err);
+      resetCaptchaRef.current?.reset();
+      setResetToken('');
     } finally {
       setLoading(false);
     }
@@ -113,26 +104,22 @@ export default function LoginPage() {
     setResetEmail('');
     setResetDni('');
     setResetRoles([]);
-    setResetError('');
+    setResetErr(null);
+    setResetToken('');
   };
-
-  const { containerRef, reset: resetCaptcha } = useTurnstile(
-    (token) => setTurnstileToken(token),
-    ()      => setTurnstileToken(''),
-  );
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!turnstileToken) { setError('Completá la verificación de seguridad.'); return; }
-    setError('');
+    if (!loginToken) { setError('Completá la verificación de seguridad.'); return; }
+    setLoginErr(null);
     setLoading(true);
     try {
-      const result = await login(email, password, turnstileToken);
+      const result = await login(email, password, loginToken);
       if (result.requires_2fa) setView('2fa');
     } catch (err) {
-      setError(err.message);
-      resetCaptcha();
-      setTurnstileToken('');
+      setLoginErr(err);
+      loginCaptchaRef.current?.reset();
+      setLoginToken('');
     } finally {
       setLoading(false);
     }
@@ -140,12 +127,12 @@ export default function LoginPage() {
 
   const handle2fa = async (e) => {
     e.preventDefault();
-    setError('');
+    setLoginErr(null);
     setLoading(true);
     try {
       await verify2fa(code);
     } catch (err) {
-      setError(err.message);
+      setLoginErr(err);
       setCode('');
     } finally {
       setLoading(false);
@@ -155,13 +142,19 @@ export default function LoginPage() {
   const handleActivate = async (e) => {
     e.preventDefault();
     if (!activateEmail.trim()) return;
-    setActivateError('');
+    if (!activateToken) { setActivateError('Completá la verificación de seguridad.'); return; }
+    setActivateErr(null);
     setLoading(true);
     try {
-      await api.auth.resendActivation({ email: activateEmail.trim().toLowerCase() });
+      await api.auth.resendActivation({
+        email: activateEmail.trim().toLowerCase(),
+        turnstile_token: activateToken,
+      });
       setView('activate-sent');
     } catch (err) {
-      setActivateError(err.message);
+      setActivateErr(err);
+      activateCaptchaRef.current?.reset();
+      setActivateToken('');
     } finally {
       setLoading(false);
     }
@@ -170,8 +163,9 @@ export default function LoginPage() {
   const goToLogin = () => {
     setView('login');
     setActivateEmail('');
-    setActivateError('');
-    setError('');
+    setActivateErr(null);
+    setActivateToken('');
+    setLoginErr(null);
   };
 
   const BackButton = ({ onClick }) => (
@@ -242,16 +236,20 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <div ref={containerRef} />
-                  {!turnstileToken && (
+                  <TurnstileWidget
+                    ref={loginCaptchaRef}
+                    onToken={setLoginToken}
+                    onExpire={() => setLoginToken('')}
+                  />
+                  {!loginToken && (
                     <p className="text-[10px] font-mono text-zinc-600 mt-1">Verificando seguridad...</p>
                   )}
-                  {turnstileToken && (
+                  {loginToken && (
                     <p className="text-[10px] font-mono text-emerald-600 mt-1">✓ Verificación completada</p>
                   )}
                 </div>
 
-                {error && <FieldError msg={error} />}
+                <FieldError msg={error} cfRay={errorCfRay} />
 
                 <button
                   type="submit"
@@ -288,7 +286,7 @@ export default function LoginPage() {
           {view === '2fa' && (
             <>
               <div className="flex items-center gap-2 mb-1">
-                <BackButton onClick={() => { setView('login'); setError(''); }} />
+                <BackButton onClick={() => { setView('login'); setLoginErr(null); }} />
                 <h1 className="text-base font-semibold text-zinc-100">Verificación en dos pasos</h1>
               </div>
               <p className="text-xs text-zinc-500 mb-5">
@@ -307,7 +305,7 @@ export default function LoginPage() {
                   placeholder="000000"
                   className="w-full h-12 rounded-md border border-zinc-700 bg-zinc-950 text-2xl font-mono font-bold text-zinc-100 text-center tracking-[0.5em] placeholder:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
                 />
-                {error && <FieldError msg={error} />}
+                <FieldError msg={error} cfRay={errorCfRay} />
                 <button
                   type="submit"
                   disabled={loading || code.length !== 6}
@@ -347,7 +345,21 @@ export default function LoginPage() {
                   />
                 </div>
 
-                {activateError && <FieldError msg={activateError} />}
+                <div>
+                  <TurnstileWidget
+                    ref={activateCaptchaRef}
+                    onToken={setActivateToken}
+                    onExpire={() => setActivateToken('')}
+                  />
+                  {!activateToken && (
+                    <p className="text-[10px] font-mono text-zinc-600 mt-1">Verificando seguridad...</p>
+                  )}
+                  {activateToken && (
+                    <p className="text-[10px] font-mono text-emerald-600 mt-1">✓ Verificación completada</p>
+                  )}
+                </div>
+
+                <FieldError msg={activateError} cfRay={activateErrorCfRay} />
 
                 <button
                   type="submit"
@@ -452,7 +464,21 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {resetError && <FieldError msg={resetError} />}
+                <div>
+                  <TurnstileWidget
+                    ref={resetCaptchaRef}
+                    onToken={setResetToken}
+                    onExpire={() => setResetToken('')}
+                  />
+                  {!resetToken && (
+                    <p className="text-[10px] font-mono text-zinc-600 mt-1">Verificando seguridad...</p>
+                  )}
+                  {resetToken && (
+                    <p className="text-[10px] font-mono text-emerald-600 mt-1">✓ Verificación completada</p>
+                  )}
+                </div>
+
+                <FieldError msg={resetError} cfRay={resetErrorCfRay} />
 
                 <button
                   type="submit"

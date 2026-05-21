@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError, NotFound
 from drf_spectacular.utils import extend_schema
+from auth_erp.utils import validate_search_q, validate_file_signature
 from .models import Proveedor, Insumo, FacturaCompra, MaterialCompra
 from desarrollo.models import PedidoMaterial
 from .serializers import ProveedorSerializer, InsumoSerializer, FacturaCompraSerializer
@@ -35,7 +36,7 @@ class ComprasViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='proveedores')
     def list_proveedores(self, request):
-        q = request.query_params.get('q')
+        q = validate_search_q(request.query_params.get('q'))
         queryset = Proveedor.objects.all()
         if q:
             queryset = queryset.filter(nombre__icontains=q)
@@ -70,8 +71,8 @@ class ComprasViewSet(viewsets.ViewSet):
     @extend_schema(responses={200: dict})
     @action(detail=False, methods=['get'], url_path='insumos')
     def list_insumos(self, request):
-        q = request.query_params.get('q')
-        categoria = request.query_params.get('categoria')
+        q = validate_search_q(request.query_params.get('q'))
+        categoria = validate_search_q(request.query_params.get('categoria'), field_name='categoria')
         queryset = Insumo.objects.all().order_by('categoria', 'subcategoria', 'nombre')
         if q:
             queryset = queryset.filter(nombre__icontains=q)
@@ -142,6 +143,7 @@ class ComprasViewSet(viewsets.ViewSet):
         archivo = request.FILES.get('archivo')
         if not archivo:
             raise ValidationError("Se requiere un archivo Excel (.xlsx)")
+        validate_file_signature(archivo, allowed_families=['xlsx'], max_size_mb=10)
 
         try:
             wb = load_workbook(filename=io.BytesIO(archivo.read()), data_only=True)
@@ -214,6 +216,7 @@ class ComprasViewSet(viewsets.ViewSet):
         pdf_archivo = None
         pdf_file = request.FILES.get('pdf')
         if pdf_file:
+            validate_file_signature(pdf_file, allowed_families=['pdf'], max_size_mb=15)
             pdf_archivo = {
                 'datos': base64.b64encode(pdf_file.read()).decode('utf-8'),
                 'nombre': pdf_file.name,

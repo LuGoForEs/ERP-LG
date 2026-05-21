@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from drf_spectacular.utils import extend_schema
+from auth_erp.utils import validate_file_signature
 from comercial.models import OrdenFabricacion, Anticipo
 from logistica.models import Despacho
 from .serializers import AnticipoSerializer, OrdenFabricacionSerializer, DespachoSerializer
@@ -59,6 +60,7 @@ class AdministracionViewSet(viewsets.ViewSet):
 
         factura_info = None
         if factura:
+            validate_file_signature(factura, allowed_families=['pdf'], max_size_mb=15)
             factura_info = {
                 "nombre": factura.name,
                 "tipo": factura.content_type,

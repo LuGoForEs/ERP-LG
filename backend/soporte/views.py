@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
 from auth_erp.views import IsSoporteOrSuperuser, can_access_soporte_features
+from auth_erp.utils import validate_search_q
 
 from comercial.models import OrdenFabricacion, Anticipo
 from desarrollo.models import PedidoMaterial, OrdenCompra, Plano
@@ -224,7 +225,7 @@ class OFListView(APIView):
     permission_classes = [IsAuthenticated, IsSoporteOrSuperuser]
 
     def get(self, request):
-        q = request.query_params.get('q', '').strip().lower()
+        q = validate_search_q(request.query_params.get('q', '')).lower()
         qs = OrdenFabricacion.objects.all().order_by('-created_at')
         if q:
             qs = qs.filter(cliente__icontains=q)

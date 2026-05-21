@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError, NotFound, PermissionDenied
 from drf_spectacular.utils import extend_schema
+from auth_erp.utils import validate_file_signature
 from .models import PedidoMaterial, OrdenCompra, PedidoMaterialItem, Plano
 from comercial.models import OrdenFabricacion, Anticipo
 from .serializers import PedidoMaterialSerializer, OrdenFabricacionSerializer, PlanoSerializer
@@ -93,6 +94,7 @@ class DesarrolloViewSet(viewsets.ViewSet):
 
         if archivo.content_type not in ALLOWED_MIME_TYPES:
             raise ValidationError(f"Solo se permiten archivos PDF. Recibido: {archivo.content_type}")
+        validate_file_signature(archivo, allowed_families=['pdf'], max_size_mb=20)
 
         plano = Plano.objects.create(
             of_id_id=of_id,

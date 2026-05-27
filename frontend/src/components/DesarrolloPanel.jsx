@@ -179,25 +179,27 @@ export default function DesarrolloPanel({ openNewSignal }) {
         list={
         <Card>
           <CardHeader><CardTitle hint={ofsVisibles.length}>OFs aprobadas</CardTitle></CardHeader>
-          {ofsVisibles.length === 0 ? <EmptyState icon="alert" msg={search ? 'Sin resultados' : 'Sin OFs aprobadas'} hint={search ? 'Probá otro término' : 'Administración debe validar anticipos'} /> :
-            ofsVisibles.map(o => (
-              <button
-                key={o.id}
-                onClick={() => handleSelect(o)}
-                className={cx(
-                  'w-full text-left px-4 py-2.5 border-b border-zinc-800/60 transition-colors border-l-2',
-                  selected?.id === o.id ? 'bg-cyan-500/10 border-l-cyan-500' : 'border-l-transparent hover:bg-zinc-800/40',
-                )}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono text-xs font-bold text-zinc-200">OF-{o.id}</span>
-                  <EstadoBadge estado="aprobada" />
-                </div>
-                <div className="text-sm font-medium text-zinc-100 truncate">{o.cliente}</div>
-                <div className="text-xs text-zinc-500 truncate mt-0.5">{o.descripcion}</div>
-              </button>
-            ))
-          }
+          <div className="max-h-[50vh] lg:max-h-[560px] overflow-y-auto">
+            {ofsVisibles.length === 0 ? <EmptyState icon="alert" msg={search ? 'Sin resultados' : 'Sin OFs aprobadas'} hint={search ? 'Probá otro término' : 'Administración debe validar anticipos'} /> :
+              ofsVisibles.map(o => (
+                <button
+                  key={o.id}
+                  onClick={() => handleSelect(o)}
+                  className={cx(
+                    'w-full text-left px-4 py-2.5 border-b border-zinc-800/60 transition-colors border-l-2',
+                    selected?.id === o.id ? 'bg-cyan-500/10 border-l-cyan-500' : 'border-l-transparent hover:bg-zinc-800/40',
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-xs font-bold text-zinc-200">OF-{o.id}</span>
+                    <EstadoBadge estado="aprobada" />
+                  </div>
+                  <div className="text-sm font-medium text-zinc-100 truncate">{o.cliente}</div>
+                  <div className="text-xs text-zinc-500 truncate mt-0.5">{o.descripcion}</div>
+                </button>
+              ))
+            }
+          </div>
         </Card>
         }
         detail={

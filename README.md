@@ -56,11 +56,14 @@ Todos estos usuarios usan la contraseña: `Mock2026!`
 | `soporte@mock.com` | Soporte (RW) |
 | `readonly@mock.com` | Solo Lectura (R - Todos los módulos) |
 
+**Nota sobre datos:** La base de datos local ha sido poblada con **13 registros por módulo**, cubriendo flujos completos desde la emisión de la OF hasta el despacho final.
+
 ---
 
 ## 🛠️ Notas de Configuración Local
 
 - **Host Allowed:** Se ha configurado `ALLOWED_HOSTS = ['*']` en `backend/config/settings.py` para evitar errores 400 (`DisallowedHost`) al usar el nombre de servicio de Docker.
+- **Redis:** La variable `REDIS_URL` debe apuntar a `redis://redis:6379/0` dentro del entorno Docker para el correcto funcionamiento de las notificaciones SSE y Celery.
 - **Captcha:** En entorno `DEBUG=True`, el sistema omite la validación de Turnstile si no hay una clave configurada.
 
 ---

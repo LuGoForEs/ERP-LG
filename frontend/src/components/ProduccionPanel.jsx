@@ -289,7 +289,7 @@ export default function ProduccionPanel({ openNewSignal }) {
 
       <div className="px-4 sm:px-7 py-5">
        <MasterDetail
-        listWidth="320px"
+        listWidth="400px"
         listSide="right"
         hasSelection={!!selectedLote}
         onBack={() => { setSelectedLote(null); setObsTexto(''); setActiveObsKey(null); }}
@@ -298,17 +298,19 @@ export default function ProduccionPanel({ openNewSignal }) {
         <div className="space-y-3">
           <Card>
             <CardHeader><CardTitle hint={lotesFiltrados.length}>Lotes de producción</CardTitle></CardHeader>
-            {lotesFiltrados.length === 0
-              ? <EmptyState icon="package" msg={search ? 'Sin resultados' : 'Sin lotes registrados'}
-                  hint={search ? 'Probá otro término' : 'Iniciá un lote cuando la OF tenga planos y materiales'} />
-              : <DataTable
-                  data={lotesFiltrados}
-                  columns={columns}
-                  onRowClick={handleRowClick}
-                  selectedId={selectedLote?.id}
-                  renderExpanded={row => <PlanosDetalle lote={row} />}
-                />
-            }
+            <div className="max-h-[50vh] lg:max-h-[448px] overflow-y-auto">
+              {lotesFiltrados.length === 0
+                ? <EmptyState icon="package" msg={search ? 'Sin resultados' : 'Sin lotes registrados'}
+                    hint={search ? 'Probá otro término' : 'Iniciá un lote cuando la OF tenga planos y materiales'} />
+                : <DataTable
+                    data={lotesFiltrados}
+                    columns={columns}
+                    onRowClick={handleRowClick}
+                    selectedId={selectedLote?.id}
+                    renderExpanded={row => <PlanosDetalle lote={row} />}
+                  />
+              }
+            </div>
           </Card>
         </div>
         }

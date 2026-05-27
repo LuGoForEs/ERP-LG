@@ -158,7 +158,7 @@ export default function ComercialPanel({ openNewSignal }) {
               { value: 'rechazadas', label: 'Rech.', count: rechazadas.length },
             ]} />
           </div>
-          <div className="max-h-[60vh] lg:max-h-[560px] overflow-y-auto">
+          <div className="max-h-[50vh] lg:max-h-[448px] overflow-y-auto">
             {filtered.length === 0 ? <EmptyState icon="briefcase" msg="Sin resultados" hint="Probá ajustar el filtro" /> :
               filtered.map(o => (
                 <button

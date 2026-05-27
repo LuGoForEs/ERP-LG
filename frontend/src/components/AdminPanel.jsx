@@ -26,6 +26,7 @@ export default function AdminPanel() {
   const [comprobanteSaldo, setComprobanteSaldo] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
   const [search, setSearch] = React.useState('');
+  const [anticiposFilter, setAnticiposFilter] = React.useState('pendientes');
   const searchRef = React.useRef(null);
   useSearchShortcut(searchRef, () => setSearch(''));
   const toast = useToast();
@@ -211,11 +212,58 @@ export default function AdminPanel() {
           onBack={() => setSelected(null)}
           backLabel="Anticipos"
           list={
-          <div className="space-y-3">
-            <ListSection title="Pendientes" items={pendientes} />
-            <ListSection title="Validados" items={validadas} />
-            <ListSection title="Rechazados" items={rechazadasA} />
-          </div>
+          <Card className="overflow-hidden">
+            <CardHeader>
+              <CardTitle hint={
+                anticiposFilter === 'todas' ? ordenes.filter(matchO).length :
+                anticiposFilter === 'pendientes' ? pendientes.length :
+                anticiposFilter === 'validadas' ? validadas.length :
+                rechazadasA.length
+              }>Anticipos</CardTitle>
+            </CardHeader>
+            <div className="px-3 py-2 border-b border-zinc-800">
+              <Tabs value={anticiposFilter} onChange={setAnticiposFilter} accent="violet" items={[
+                { value: 'todas',      label: 'Todas', count: ordenes.filter(matchO).length },
+                { value: 'pendientes', label: 'Pend.', count: pendientes.length },
+                { value: 'validadas',  label: 'OK',    count: validadas.length },
+                { value: 'rechazadas', label: 'Rech.', count: rechazadasA.length },
+              ]} />
+            </div>
+            <div className="max-h-[300px] overflow-y-auto">
+              {(() => {
+                const items = anticiposFilter === 'todas' ? ordenes.filter(matchO) :
+                             anticiposFilter === 'pendientes' ? pendientes :
+                             anticiposFilter === 'validadas' ? validadas :
+                             rechazadasA;
+                
+                return items.length === 0 ? <EmptyState icon="wallet" msg="Sin registros" /> :
+                  items.map(o => (
+                    <button
+                      key={o.id}
+                      onClick={() => handleSelect(o)}
+                      className={cx(
+                        'w-full text-left px-4 py-2.5 border-b border-zinc-800/60 transition-colors border-l-2',
+                        selected?.id === o.id
+                          ? 'bg-violet-500/10 border-l-violet-500'
+                          : 'border-l-transparent hover:bg-zinc-800/40',
+                        o.anticipo?.estado !== 'pendiente' && 'opacity-70',
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-mono text-xs font-bold text-zinc-200">OF-{o.id}</span>
+                        {o.anticipo?.estado === 'pendiente' ? (
+                          <span className="font-mono text-xs text-amber-400 font-semibold">
+                            {o.moneda_anticipo} {Number(o.monto_anticipo).toLocaleString('es-AR')}
+                          </span>
+                        ) : <EstadoBadge estado={o.anticipo?.estado || o.estado} />}
+                      </div>
+                      <div className="text-xs text-zinc-300 truncate">{o.cliente}</div>
+                      {o.anticipo?.estado === 'pendiente' && <div className="text-[11px] text-zinc-500 truncate mt-0.5">{o.descripcion}</div>}
+                    </button>
+                  ));
+              })()}
+            </div>
+          </Card>
           }
           detail={
           <Card>

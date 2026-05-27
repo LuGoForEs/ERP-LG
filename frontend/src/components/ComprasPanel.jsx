@@ -5,7 +5,7 @@ import {
   cx, Icon, Button,
   EstadoBadge, Badge, Card, CardHeader, CardTitle,
   Metric, useToast, useSearchShortcut,
-  SectionLabel, EmptyState, DataTable, ModuleHeader,
+  SectionLabel, EmptyState, DataTable, ModuleHeader, MasterDetail,
 } from './primitives';
 
 export default function ComprasPanel() {
@@ -231,149 +231,196 @@ export default function ComprasPanel() {
         <Metric label="Total compras" value={`$${(totalFacturado/1000).toFixed(0)}k`} sub="ARS acumulado" icon="wallet" accent="emerald" />
       </div>
 
-      <div className="px-4 sm:px-7 py-5 space-y-4">
-        <div>
-          <SectionLabel>Pedidos de material pendientes</SectionLabel>
-          {pendientes.length === 0 ? (
-            <Card><EmptyState icon="check-circle" msg="Sin pedidos pendientes" /></Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {pendientes.map(p => (
-                <Card key={p.id} className={cx('p-4 transition-colors', selectedPm?.id === p.id && 'border-amber-500 ring-1 ring-amber-500/40')}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-zinc-200">PM-{p.id}</span>
-                      <span className="font-mono text-xs text-zinc-500">OF-{p.of_id}</span>
-                    </div>
-                    <EstadoBadge estado={p.estado} />
-                  </div>
-                  <div className="text-xs text-zinc-500 mb-1">Emisor: <span className="text-zinc-300">{p.emisor}</span></div>
-                  <div className="text-xs text-zinc-500 mb-3">Equipo: <span className="text-zinc-300">{p.equipo || '—'}</span></div>
-                  <div className="bg-zinc-950/60 border border-zinc-800 rounded-md p-2.5 mb-3">
-                    <div className="font-mono text-[9px] uppercase tracking-wider text-zinc-600 mb-1.5 font-semibold">Ítems</div>
-                    {(p.items || []).map((it, i) => (
-                      <div key={i} className="text-[11px] text-zinc-300 truncate">
-                        <span className="font-mono text-amber-400">{it.cantidad}</span> — {it.descripcion}
-                      </div>
-                    ))}
-                    {(!p.items || p.items.length === 0) && <div className="text-[11px] text-zinc-600">Sin ítems</div>}
-                  </div>
-                  {!readonly && (
-                    <Button onClick={() => handleCargar(p)} accent="amber" size="sm" className="w-full" icon={selectedPm?.id === p.id ? 'check' : 'arrow-down'}>
-                      {selectedPm?.id === p.id ? 'Cargado' : 'Procesar PM'}
-                    </Button>
-                  )}
-                </Card>
-              ))}
+      {facturasFiltradas.length > 0 && (
+        <div className="px-4 sm:px-7 pt-5">
+          <SectionLabel>Historial reciente de OCs</SectionLabel>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-800">
+            {facturasFiltradas.map(f => (
+              <Card 
+                key={f.id} 
+                onClick={() => setSelectedOC(prev => prev?.id === f.id ? null : f)}
+                className={cx(
+                  'min-w-[240px] max-w-[240px] p-3 cursor-pointer transition-all border-l-2 shrink-0',
+                  selectedOC?.id === f.id ? 'bg-blue-500/10 border-l-blue-500' : 'border-l-zinc-700 hover:bg-zinc-800/40'
+                )}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono text-xs font-bold text-zinc-200">OC-{f.id}</span>
+                  <EstadoBadge estado={f.estado} />
+                </div>
+                <div className="text-[11px] text-zinc-300 truncate mb-1">{f.proveedor || f.materiales?.[0]?.proveedor || '—'}</div>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[10px] text-zinc-500">{f.materiales?.length || 0} ítems</span>
+                  <span className="font-mono text-xs font-bold text-emerald-400">${Number(f.monto_total||0).toLocaleString('es-AR')}</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+          {selectedOC && (
+            <div className="mt-3 animate-in fade-in slide-in-from-top-2">
+              <Card className="border-blue-500/30">
+                <OCDetalle oc={selectedOC} />
+              </Card>
             </div>
           )}
         </div>
+      )}
 
-        <Card>
-          <CardHeader actions={selectedPm && <Badge accent="amber">PM-{selectedPm.id}</Badge>}>
-            <CardTitle>Procesar pedido de material</CardTitle>
-          </CardHeader>
-          <div className="p-5 space-y-3">
-            <div className="border border-zinc-800 rounded-md overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-zinc-900/60 border-b border-zinc-800">
-                  <tr>
-                    {[['#',32,'center'],['Insumo',null],['Proveedor',null],['Cant.',64,'center'],['Ud.',60],['Precio unit.',110,'right'],['Subtotal',110,'right'],['',32]].map(([h,w,a],i) => (
-                      <th key={i} style={w ? {width: w} : undefined} className={cx('font-mono text-[10px] uppercase tracking-[0.05em] text-zinc-500 font-semibold px-2.5 py-2', a === 'right' ? 'text-right' : a === 'center' ? 'text-center' : 'text-left')}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {materiales.map((m, idx) => (
-                    <tr key={idx} className="border-b border-zinc-800/60 hover:bg-zinc-800/30">
-                      <td className="text-center font-mono text-xs text-zinc-600 px-1 py-1">{idx+1}</td>
-                      <td className="px-1 py-1"><input value={m.nombre} onChange={e => updateMat(idx,'nombre',e.target.value)} placeholder="Insumo..." className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 focus:outline-none rounded px-1.5 py-1 text-xs text-zinc-200" /></td>
-                      <td className="px-1 py-1"><input value={m.proveedor} onChange={e => updateMat(idx,'proveedor',e.target.value)} placeholder="Proveedor..." className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 focus:outline-none rounded px-1.5 py-1 text-xs text-zinc-200" /></td>
-                      <td className="px-1 py-1"><input type="number" value={m.cantidad} onChange={e => updateMat(idx,'cantidad',e.target.value)} className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 focus:outline-none rounded px-1.5 py-1 text-xs text-zinc-200 text-center font-mono" /></td>
-                      <td className="px-1 py-1">
-                        <select value={m.unidad} onChange={e => updateMat(idx,'unidad',e.target.value)} className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 rounded px-1.5 py-1 text-xs text-zinc-200">
-                          {['u','m','kg','L','m²'].map(u => <option key={u} value={u} className="bg-zinc-900">{u}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-1 py-1"><input type="number" value={m.precio_unitario} onChange={e => updateMat(idx,'precio_unitario',e.target.value)} className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 focus:outline-none rounded px-1.5 py-1 text-xs text-zinc-200 text-right font-mono" /></td>
-                      <td className="px-2.5 py-1 text-right font-mono text-xs text-emerald-400">${(parseFloat(m.cantidad||0) * parseFloat(m.precio_unitario||0)).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
-                      <td className="px-1 py-1 text-center"><button onClick={() => setMateriales(p => p.length <= 1 ? p : p.filter((_,i) => i !== idx))} disabled={materiales.length <= 1} className="text-zinc-600 hover:text-rose-400 disabled:opacity-20"><Icon name="x" size={14} /></button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <button onClick={() => setMateriales(p => [...p, { nombre: '', proveedor: '', cantidad: 1, unidad: 'u', precio_unitario: 0 }])} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-dashed border-zinc-800 text-xs text-zinc-400 hover:border-amber-500/60 hover:text-amber-400 transition-colors">
-                <Icon name="plus" size={12} />Agregar fila
-              </button>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-600">Total estimado</div>
-                  <div className="font-mono text-xl font-bold text-emerald-400">${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
+      <div className="px-4 sm:px-7 py-5">
+        <MasterDetail
+          listWidth="360px"
+          hasSelection={!!selectedPm}
+          onBack={() => setSelectedPm(null)}
+          backLabel="Pedidos"
+          list={
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle hint={pendientes.length}>Pedidos de material pendientes</CardTitle>
+                </CardHeader>
+                <div className="max-h-[50vh] lg:max-h-[320px] overflow-y-auto">
+                  {pendientes.length === 0 ? (
+                    <EmptyState icon="check-circle" msg="Sin pedidos pendientes" />
+                  ) : (
+                    <div className="divide-y divide-zinc-800/60">
+                      {pendientes.map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => handleCargar(p)}
+                          className={cx(
+                            'w-full text-left p-4 transition-colors border-l-2',
+                            selectedPm?.id === p.id 
+                              ? 'bg-amber-500/10 border-l-amber-500' 
+                              : 'border-l-transparent hover:bg-zinc-800/40'
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-bold text-zinc-200">PM-{p.id}</span>
+                              <span className="font-mono text-[10px] text-zinc-500 font-medium">OF-{p.of_id}</span>
+                            </div>
+                            <EstadoBadge estado={p.estado} />
+                          </div>
+                          <div className="text-[11px] text-zinc-400 mb-2 truncate">
+                            Emisor: <span className="text-zinc-300 font-medium">{p.emisor}</span>
+                            {p.equipo && <span> • Equipo: <span className="text-zinc-300 font-medium">{p.equipo}</span></span>}
+                          </div>
+                          <div className="bg-zinc-950/40 border border-zinc-800/60 rounded p-2 text-[10px]">
+                            <p className="text-zinc-500 uppercase tracking-wider font-bold mb-1">Ítems principales</p>
+                            {(p.items || []).slice(0, 2).map((it, i) => (
+                              <div key={i} className="text-zinc-300 truncate leading-tight">
+                                <span className="font-mono text-amber-500/80">{parseFloat(it.cantidad || 0).toFixed(2).replace(/\.?0+$/, '')}</span> — {it.descripcion}
+                              </div>
+                            ))}
+                            {(p.items || []).length > 2 && (
+                              <p className="text-zinc-600 mt-1 italic">+{(p.items || []).length - 2} ítems más</p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {!readonly && (
-                  <Button onClick={handleSubmit} disabled={!selectedPm || saving} accent="amber" icon="check">
-                    {saving ? 'Guardando...' : 'Confirmar OC'}
-                  </Button>
-                )}
-              </div>
+              </Card>
             </div>
+          }
+          detail={
+            <div className="space-y-4">
+              <Card>
+                <CardHeader actions={selectedPm && <Badge accent="amber">PM-{selectedPm.id}</Badge>}>
+                  <CardTitle>Procesar pedido de material</CardTitle>
+                </CardHeader>
+                <div className="p-5 space-y-4">
+                  {!selectedPm ? (
+                    <EmptyState 
+                      icon="arrow-left" 
+                      msg="Seleccioná un pedido" 
+                      hint="Elegí una PM de la lista de la izquierda para registrar la orden de compra" 
+                    />
+                  ) : (
+                    <>
+                      <div className="border border-zinc-800 rounded-md overflow-hidden overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-zinc-900/60 border-b border-zinc-800">
+                            <tr>
+                              {[['#',32,'center'],['Insumo',null],['Proveedor',null],['Cant.',64,'center'],['Ud.',60],['Precio unit.',110,'right'],['Subtotal',110,'right'],['',32]].map(([h,w,a],i) => (
+                                <th key={i} style={w ? {width: w} : undefined} className={cx('font-mono text-[10px] uppercase tracking-[0.05em] text-zinc-500 font-semibold px-2.5 py-2', a === 'right' ? 'text-right' : a === 'center' ? 'text-center' : 'text-left')}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {materiales.map((m, idx) => (
+                              <tr key={idx} className="border-b border-zinc-800/60 hover:bg-zinc-800/30">
+                                <td className="text-center font-mono text-xs text-zinc-600 px-1 py-1">{idx+1}</td>
+                                <td className="px-1 py-1"><input value={m.nombre} onChange={e => updateMat(idx,'nombre',e.target.value)} placeholder="Insumo..." className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 focus:outline-none rounded px-1.5 py-1 text-xs text-zinc-200" /></td>
+                                <td className="px-1 py-1"><input value={m.proveedor} onChange={e => updateMat(idx,'proveedor',e.target.value)} placeholder="Proveedor..." className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 focus:outline-none rounded px-1.5 py-1 text-xs text-zinc-200" /></td>
+                                <td className="px-1 py-1"><input type="number" value={m.cantidad} onChange={e => updateMat(idx,'cantidad',e.target.value)} className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 focus:outline-none rounded px-1.5 py-1 text-xs text-zinc-200 text-center font-mono" /></td>
+                                <td className="px-1 py-1">
+                                  <select value={m.unidad} onChange={e => updateMat(idx,'unidad',e.target.value)} className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 rounded px-1.5 py-1 text-xs text-zinc-200">
+                                    {['u','m','kg','L','m²'].map(u => <option key={u} value={u} className="bg-zinc-900">{u}</option>)}
+                                  </select>
+                                </td>
+                                <td className="px-1 py-1"><input type="number" value={m.precio_unitario} onChange={e => updateMat(idx,'precio_unitario',e.target.value)} className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-amber-500 focus:outline-none rounded px-1.5 py-1 text-xs text-zinc-200 text-right font-mono" /></td>
+                                <td className="px-2.5 py-1 text-right font-mono text-xs text-emerald-400">${(parseFloat(m.cantidad||0) * parseFloat(m.precio_unitario||0)).toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                                <td className="px-1 py-1 text-center"><button onClick={() => setMateriales(p => p.length <= 1 ? p : p.filter((_,i) => i !== idx))} disabled={materiales.length <= 1} className="text-zinc-600 hover:text-rose-400 disabled:opacity-20"><Icon name="x" size={14} /></button></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
 
-            <div className="border-t border-zinc-800 pt-3">
-              <label className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1.5 block">
-                Factura PDF <span className="normal-case text-zinc-600 ml-1">(opcional)</span>
-              </label>
-              <label className={cx(
-                'flex items-center gap-2.5 px-3 py-2.5 rounded-md border cursor-pointer transition-colors w-fit',
-                pdfFile
-                  ? 'border-amber-500/50 bg-amber-500/5 text-amber-400'
-                  : 'border-dashed border-zinc-700 text-zinc-500 hover:border-amber-500/50 hover:text-amber-400',
-              )}>
-                <Icon name="upload" size={13} />
-                <span className="text-xs">{pdfFile ? pdfFile.name : 'Adjuntar factura...'}</span>
-                {pdfFile && (
-                  <button
-                    onClick={e => { e.preventDefault(); setPdfFile(null); }}
-                    className="ml-1 text-zinc-500 hover:text-rose-400"
-                  >
-                    <Icon name="x" size={12} />
-                  </button>
-                )}
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  onChange={e => setPdfFile(e.target.files[0] || null)}
-                />
-              </label>
+                      <div className="flex justify-between items-center gap-4 flex-wrap sm:flex-nowrap">
+                        <button onClick={() => setMateriales(p => [...p, { nombre: '', proveedor: '', cantidad: 1, unidad: 'u', precio_unitario: 0 }])} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-dashed border-zinc-800 text-xs text-zinc-400 hover:border-amber-500/60 hover:text-amber-400 transition-colors">
+                          <Icon name="plus" size={12} />Agregar fila
+                        </button>
+                        <div className="flex items-center gap-4 ml-auto">
+                          <div className="text-right">
+                            <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-600 leading-none mb-1">Total estimado</div>
+                            <div className="font-mono text-xl font-bold text-emerald-400 leading-none">${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
+                          </div>
+                          {!readonly && (
+                            <Button onClick={handleSubmit} disabled={!selectedPm || saving} accent="amber" icon="check">
+                              {saving ? 'Guardando...' : 'Confirmar OC'}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="border-t border-zinc-800 pt-4 mt-2">
+                        <label className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-2 block">
+                          Factura PDF <span className="normal-case text-zinc-600 ml-1">(opcional)</span>
+                        </label>
+                        <label className={cx(
+                          'flex items-center gap-2.5 px-3 py-2 rounded-md border cursor-pointer transition-colors w-fit',
+                          pdfFile
+                            ? 'border-amber-500/50 bg-amber-500/5 text-amber-400'
+                            : 'border-dashed border-zinc-700 text-zinc-500 hover:border-amber-500/50 hover:text-amber-400',
+                        )}>
+                          <Icon name="upload" size={13} />
+                          <span className="text-xs">{pdfFile ? pdfFile.name : 'Adjuntar factura...'}</span>
+                          {pdfFile && (
+                            <button
+                              onClick={e => { e.preventDefault(); setPdfFile(null); }}
+                              className="ml-1 text-zinc-500 hover:text-rose-400"
+                            >
+                              <Icon name="x" size={12} />
+                            </button>
+                          )}
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            className="hidden"
+                            onChange={e => setPdfFile(e.target.files[0] || null)}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </Card>
             </div>
-          </div>
-        </Card>
-
-        {facturasFiltradas.length > 0 && (
-          <Card>
-            <CardHeader><CardTitle hint={facturasFiltradas.length}>Historial de OCs</CardTitle></CardHeader>
-            <DataTable
-              data={facturasFiltradas}
-              columns={[
-                { key: 'id', label: 'OC', mono: true, sortable: true, cell: r => <span className="font-mono font-bold text-zinc-200">OC-{r.id}</span> },
-                { key: 'pedido_material_id', label: 'PM', mono: true, cell: r => r.pedido_material_id
-                  ? <span className="text-zinc-500">PM-{r.pedido_material_id}</span>
-                  : <span className="text-rose-400 text-[10px] font-semibold font-mono">Reposición</span>
-                },
-                { key: 'proveedor', label: 'Proveedor', sortable: true, cell: r => <span>{r.proveedor || r.materiales?.[0]?.proveedor || '—'}</span> },
-                { key: 'items', label: 'Ítems', mono: true, align: 'center', cell: r => <span className="font-mono text-zinc-400">{r.materiales?.length || 0}</span> },
-                { key: 'monto', label: 'Total', mono: true, align: 'right', sortable: true, accessor: r => r.monto_total, cell: r => <span className="text-emerald-400 font-bold">${Number(r.monto_total||0).toLocaleString('es-AR',{minimumFractionDigits:2})}</span> },
-                { key: 'estado', label: 'Estado', cell: r => <EstadoBadge estado={r.estado} /> },
-              ]}
-              onRowClick={row => setSelectedOC(prev => prev?.id === row.id ? null : row)}
-              selectedId={selectedOC?.id}
-              renderExpanded={row => <OCDetalle oc={row} />}
-            />
-          </Card>
-        )}
+          }
+        />
       </div>
     </div>
   );

@@ -879,8 +879,19 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
                       {on2FASetup && (
                         <button
                           role="menuitem"
-                          onClick={() => { setHelpOpen(false); on2FASetup(); }}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors"
+                          disabled={import.meta.env.DEV}
+                          onClick={() => {
+                            if (import.meta.env.DEV) return;
+                            setHelpOpen(false);
+                            on2FASetup();
+                          }}
+                          className={cx(
+                            "w-full flex items-center gap-2 px-2 py-1.5 text-xs transition-colors",
+                            import.meta.env.DEV
+                              ? "opacity-40 cursor-not-allowed text-zinc-500"
+                              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                          )}
+                          title={import.meta.env.DEV ? "Deshabilitado en desarrollo" : undefined}
                         >
                           <Icon name="shield" size={13} />
                           <span className="flex-1 text-left">{user.totp_enabled ? 'Gestionar 2FA' : 'Activar 2FA'}</span>
@@ -890,8 +901,19 @@ export function Sidebar({ active, onSelect, onShortcuts, user, onLogout, on2FASe
                       {onContactSoporte && (
                         <button
                           role="menuitem"
-                          onClick={() => { setHelpOpen(false); onContactSoporte(); }}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors border-t border-zinc-800/60"
+                          disabled={import.meta.env.DEV}
+                          onClick={() => {
+                            if (import.meta.env.DEV) return;
+                            setHelpOpen(false);
+                            onContactSoporte();
+                          }}
+                          className={cx(
+                            "w-full flex items-center gap-2 px-2 py-1.5 text-xs transition-colors border-t border-zinc-800/60",
+                            import.meta.env.DEV
+                              ? "opacity-40 cursor-not-allowed text-zinc-500"
+                              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                          )}
+                          title={import.meta.env.DEV ? "Deshabilitado en desarrollo" : undefined}
                         >
                           <Icon name="mail" size={13} />
                           <span className="flex-1 text-left">Contactar a soporte</span>

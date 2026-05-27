@@ -41,3 +41,32 @@ html, body { overflow-x: hidden; }
     font-size: 16px !important;
   }
 }
+
+/* ─── SCROLLBARS ────────────────────────────────────────────────────────────── */
+@layer base {
+  /* Scrollbar General y contenedores */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-zinc-800);
+    border-radius: 20px;
+    border: 1px solid transparent;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-zinc-700);
+  }
+
+  /* Firefox support */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-zinc-800) transparent;
+  }
+}

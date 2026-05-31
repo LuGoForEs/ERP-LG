@@ -9,6 +9,22 @@ import {
 import { usePermissions } from '../contexts/PermissionsContext';
 import { useNodeEvents } from '../contexts/NotificationsContext';
 
+const MOCK_DESPACHOS = [
+  { id: 101, lote_id: 50, destino: "Av. Siempre Viva 742, CABA", transportista: "Transportes Charly", estado: 'pendiente', created_at: '2026-05-30T10:00:00Z' },
+  { id: 102, lote_id: 51, destino: "Calle Falsa 123, Córdoba", transportista: "Expreso Norte", estado: 'esperando_autorizacion', created_at: '2026-05-31T11:30:00Z' },
+  { id: 103, lote_id: 52, destino: "Ruta 2 km 45, La Plata", transportista: "Logística S.A.", estado: 'autorizado', created_at: '2026-06-01T09:15:00Z', observacion_admin: "Todo conforme, proceder con el envío." },
+  { id: 104, lote_id: 53, destino: "Parque Industrial, Salta", transportista: "Cargas Rápidas", estado: 'rechazado', created_at: '2026-05-28T14:20:00Z', observacion_admin: "Falta comprobante de pago del saldo restante." },
+];
+
+const MOCK_LOTES = [
+  { id: 50, of_id: 200, estado: 'terminado' },
+  { id: 51, of_id: 201, estado: 'en_despacho' },
+  { id: 52, of_id: 202, estado: 'terminado' },
+  { id: 53, of_id: 203, estado: 'en_despacho' },
+  { id: 60, of_id: 205, estado: 'terminado' },
+  { id: 61, of_id: 206, estado: 'terminado' },
+];
+
 function DespachoDetalle({ despacho, onClose, onAccion, readonly }) {
   const Field2 = ({ label, children, full }) => (
     <div className={full ? 'col-span-2' : ''}>
@@ -126,12 +142,17 @@ export default function LogisticaPanel({ openNewSignal }) {
         api.logistica.getDespachos(),
         api.produccion.getLotes(),
       ]);
-      setDespachos(desps);
+      
+      // Merge with mocks
+      const mergedDesps = [...MOCK_DESPACHOS, ...desps];
+      const mergedLotes = [...MOCK_LOTES, ...lotesData];
+
+      setDespachos(mergedDesps);
       // Lotes disponibles: terminado o en_despacho sin despacho activo (rechazados no bloquean)
       const occupiedLoteIds = new Set(
-        desps.filter(d => d.estado !== 'rechazado').map(d => d.lote_id)
+        mergedDesps.filter(d => d.estado !== 'rechazado').map(d => d.lote_id)
       );
-      setLotes(lotesData.filter(l =>
+      setLotes(mergedLotes.filter(l =>
         (l.estado === 'terminado' || l.estado === 'en_despacho') &&
         !occupiedLoteIds.has(l.id)
       ));
@@ -283,7 +304,7 @@ export default function LogisticaPanel({ openNewSignal }) {
 
       <div className="px-4 sm:px-7 py-5">
        <MasterDetail
-        listWidth="300px"
+        listWidth="850px"
         listSide="right"
         stack
         hasSelection={false}

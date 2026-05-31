@@ -289,7 +289,7 @@ export default function ProduccionPanel({ openNewSignal }) {
 
       <div className="px-4 sm:px-7 py-5">
        <MasterDetail
-        listWidth="400px"
+        listWidth="600px"
         listSide="right"
         hasSelection={!!selectedLote}
         onBack={() => { setSelectedLote(null); setObsTexto(''); setActiveObsKey(null); }}

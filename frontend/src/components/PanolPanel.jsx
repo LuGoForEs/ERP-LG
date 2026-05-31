@@ -25,6 +25,14 @@ const MOCK_INGRESOS = [
   { id: 4, factura_id: 504, materiales: [{ nombre: "Bomba Centrífuga 2HP" }], created_at: '2026-05-25T11:00:00Z', verificacion_estado: 'conforme' },
 ];
 
+const MOCK_ARTICULOS = [
+  { id: 1, nombre: "Chapa Acero Inoxidable 304 2mm", categoria: "Materia Prima", subcategoria: "Chapas", unidad: "u", created_at: '2026-04-10' },
+  { id: 2, nombre: "Perfil UPN 100", categoria: "Materia Prima", subcategoria: "Perfiles", unidad: "m", created_at: '2026-04-12' },
+  { id: 3, nombre: "Electrodos 6013 3.25mm", categoria: "Insumos", subcategoria: "Soldadura", unidad: "kg", created_at: '2026-04-15' },
+  { id: 4, nombre: "Disco de Corte 4.5\"", categoria: "Insumos", subcategoria: "Abrasivos", unidad: "u", created_at: '2026-04-18' },
+  { id: 5, nombre: "Pintura Epoxi Gris", categoria: "Insumos", subcategoria: "Pinturería", unidad: "L", created_at: '2026-04-20' },
+];
+
 export default function PanolPanel() {
   const { isReadonly } = usePermissions();
   const readonly = isReadonly('panol');
@@ -190,7 +198,7 @@ export default function PanolPanel() {
     }
   };
 
-  const filteredArts = articulos.filter(a =>
+  const filteredArts = [...MOCK_ARTICULOS, ...articulos].filter(a =>
     !artFilter || a.nombre.toLowerCase().includes(artFilter.toLowerCase())
   );
 
@@ -678,7 +686,7 @@ export default function PanolPanel() {
       {tab === 'catalogo' && (
         <div className="px-4 sm:px-7 py-5">
          <MasterDetail
-          listWidth="360px"
+          listWidth="800px"
           listSide="right"
           stack
           hasSelection={false}

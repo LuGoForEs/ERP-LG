@@ -9,6 +9,22 @@ import {
 import { useSharedArticulos, ArticuloForm, V2_EMPTY_ARTICULO, articuloIsValid } from '../contexts/ArticulosContext';
 import { usePermissions } from '../contexts/PermissionsContext';
 
+const MOCK_STOCK = {
+  "Tanque Acero Inox 5000L": 12,
+  "Válvula Esférica 2\"": 45,
+  "Caño Epoxy 1/2\" x 6m": 120,
+  "Bomba Centrífuga 2HP": 5,
+  "Codo 90° PVC 110mm": 80,
+  "Plancha Aluminio 2x1m": 15
+};
+
+const MOCK_INGRESOS = [
+  { id: 1, factura_id: 501, materiales: [{ nombre: "Tanque Acero Inox 5000L" }], created_at: '2026-05-15T10:00:00Z', verificacion_estado: 'conforme' },
+  { id: 2, factura_id: 502, materiales: [{ nombre: "Válvula Esférica 2\"" }], created_at: '2026-05-20T14:30:00Z', verificacion_estado: 'conforme' },
+  { id: 3, factura_id: 503, materiales: [{ nombre: "Caño Epoxy 1/2\" x 6m" }], created_at: '2026-05-22T09:15:00Z', verificacion_estado: 'conforme' },
+  { id: 4, factura_id: 504, materiales: [{ nombre: "Bomba Centrífuga 2HP" }], created_at: '2026-05-25T11:00:00Z', verificacion_estado: 'conforme' },
+];
+
 export default function PanolPanel() {
   const { isReadonly } = usePermissions();
   const readonly = isReadonly('panol');
@@ -65,8 +81,8 @@ export default function PanolPanel() {
         api.compras.getFacturas(),
         api.desarrollo.getOFsDisponibles(),
       ]);
-      setStock(stockData);
-      setIngresos(ingresosData);
+      setStock({ ...MOCK_STOCK, ...stockData });
+      setIngresos([...MOCK_INGRESOS, ...ingresosData]);
       setMovimientos(movsData);
       setFacturasPendientes(facturasData.filter(f => f.estado === 'registrada'));
       setOfsAprobadas(ofsData);
@@ -300,7 +316,7 @@ export default function PanolPanel() {
       {tab === 'stock' && (
         <div className="px-4 sm:px-7 py-5">
          <MasterDetail
-          listWidth="340px"
+          listWidth="800px"
           listSide="right"
           stack
           hasSelection={false}

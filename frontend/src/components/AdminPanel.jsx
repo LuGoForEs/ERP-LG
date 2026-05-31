@@ -133,7 +133,7 @@ export default function AdminPanel() {
   const ListSection = ({ title, items }) => (
     <Card className="overflow-hidden">
       <CardHeader><CardTitle hint={items.length}>{title}</CardTitle></CardHeader>
-      <div className="max-h-[300px] overflow-y-auto">
+      <div className="max-h-[250px] overflow-y-auto">
         {items.length === 0 ? <EmptyState icon="check-circle" msg="Sin registros" /> :
           items.map(o => (
             <button
@@ -229,7 +229,7 @@ export default function AdminPanel() {
                 { value: 'rechazadas', label: 'Rech.', count: rechazadasA.length },
               ]} />
             </div>
-            <div className="max-h-[300px] overflow-y-auto">
+            <div className="max-h-[250px] overflow-y-auto">
               {(() => {
                 const items = anticiposFilter === 'todas' ? ordenes.filter(matchO) :
                              anticiposFilter === 'pendientes' ? pendientes :

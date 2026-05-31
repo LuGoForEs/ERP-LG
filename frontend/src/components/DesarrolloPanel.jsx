@@ -179,7 +179,7 @@ export default function DesarrolloPanel({ openNewSignal }) {
         list={
         <Card>
           <CardHeader><CardTitle hint={ofsVisibles.length}>OFs aprobadas</CardTitle></CardHeader>
-          <div className="max-h-[50vh] lg:max-h-[560px] overflow-y-auto">
+          <div className="max-h-[50vh] lg:max-h-[250px] overflow-y-auto">
             {ofsVisibles.length === 0 ? <EmptyState icon="alert" msg={search ? 'Sin resultados' : 'Sin OFs aprobadas'} hint={search ? 'Probá otro término' : 'Administración debe validar anticipos'} /> :
               ofsVisibles.map(o => (
                 <button

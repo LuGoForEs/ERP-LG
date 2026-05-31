@@ -678,16 +678,18 @@ export default function PanolPanel() {
             {filteredArts.length === 0 ? (
               <EmptyState icon="package" msg="Sin artículos" hint={artFilter ? 'Probá ajustar el filtro' : 'Creá el primer artículo del catálogo'} />
             ) : (
-              <DataTable
-                data={filteredArts}
-                columns={[
-                  { key: 'id', label: 'ID', mono: true, width: 60, cell: r => <span className="font-mono text-xs text-zinc-600">ART-{String(r.id).padStart(3,'0')}</span> },
-                  { key: 'nombre', label: 'Nombre', sortable: true, cell: r => <span className="text-zinc-200 font-medium">{r.nombre}</span> },
-                  { key: 'categoria', label: 'Categoría', sortable: true, cell: r => r.categoria ? <Badge accent="emerald" dot>{r.categoria}</Badge> : <span className="text-zinc-600 text-xs">—</span> },
-                  { key: 'subcategoria', label: 'Subcategoría', cell: r => <span className="text-zinc-400 text-xs">{r.subcategoria || '—'}</span> },
-                  { key: 'unidad', label: 'Unidad', cell: r => <span className="text-zinc-500">{r.unidad}</span> },
-                ]}
-              />
+              <div className="max-h-[300px] overflow-y-auto [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-track]:bg-zinc-900 [&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-zinc-600" style={{ scrollbarWidth: 'thin', scrollbarColor: '#52525b #18181b' }}>
+                <DataTable
+                  data={filteredArts}
+                  columns={[
+                    { key: 'id', label: 'ID', mono: true, width: 60, cell: r => <span className="font-mono text-xs text-zinc-600">ART-{String(r.id).padStart(3,'0')}</span> },
+                    { key: 'nombre', label: 'Nombre', sortable: true, cell: r => <span className="text-zinc-200 font-medium">{r.nombre}</span> },
+                    { key: 'categoria', label: 'Categoría', sortable: true, cell: r => r.categoria ? <Badge accent="emerald" dot>{r.categoria}</Badge> : <span className="text-zinc-600 text-xs">—</span> },
+                    { key: 'subcategoria', label: 'Subcategoría', cell: r => <span className="text-zinc-400 text-xs">{r.subcategoria || '—'}</span> },
+                    { key: 'unidad', label: 'Unidad', cell: r => <span className="text-zinc-500">{r.unidad}</span> },
+                  ]}
+                />
+              </div>
             )}
           </Card>
           }

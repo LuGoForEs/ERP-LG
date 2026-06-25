@@ -10,7 +10,10 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key')
+# Usa la SECRET_KEY del entorno si está definida y NO vacía; si no, cae a una clave
+# DEMO fija para que la app de cátedra arranque sin configurar .env en el servidor.
+# NO usar este default en producción real (es pública: va en el repo).
+SECRET_KEY = config('SECRET_KEY', default='') or 'django-insecure-app1-academia-demo-cambiar-en-produccion'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)

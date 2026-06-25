@@ -76,7 +76,7 @@ docker compose exec backend python manage.py seed_demo   # datos de ejemplo (opc
 
 ## Variables de entorno
 
-El `.env` real lo crea el responsable del servidor a partir de **`.env.example`** (nunca se versiona el `.env`). Contrato:
+**Para la demo, el `.env` es OPCIONAL:** la app arranca con valores demo por defecto (`SECRET_KEY` cae a una clave demo en `settings.py`; `POSTGRES_*` tienen default en el compose). Para un entorno real, el responsable del servidor crea el `.env` a partir de **`.env.example`** (nunca se versiona) con valores propios — si están, se usan. Contrato:
 
 ```
 POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD

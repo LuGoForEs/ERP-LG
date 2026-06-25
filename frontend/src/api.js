@@ -1,0 +1,268 @@
+const BASE = '/api/v1';
+
+let _accessToken = localStorage.getItem('access_token');
+let _refreshing = null;
+let _onLogout = null;
+
+export function setAccessToken(token) {
+  _accessToken = token;
+  if (token) localStorage.setItem('access_token', token);
+  else localStorage.removeItem('access_token');
+}
+
+export function setLogoutHandler(fn) { _onLogout = fn; }
+
+async function _tryRefresh() {
+  if (_refreshing) return _refreshing;
+  _refreshing = fetch(`${BASE}/auth/refresh/`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+  })
+    .then(async r => {
+      if (!r.ok) throw new Error('refresh failed');
+      const { access } = await r.json();
+      setAccessToken(access);
+      return access;
+    })
+    .catch(() => {
+      setAccessToken(null);
+      if (_onLogout) _onLogout();
+      return null;
+    })
+    .finally(() => { _refreshing = null; });
+  return _refreshing;
+}
+
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+const CF_BLOCK_STATUSES  = new Set([403, 503, 520, 521, 522, 523, 524, 525, 526, 527]);
+
+function _looksLikeCloudflareBlock(res, contentType) {
+  if (!CF_BLOCK_STATUSES.has(res.status)) return false;
+  if (res.headers.get('cf-mitigated')) return true;
+  return contentType.includes('text/html');
+}
+
+function _buildError({ status, message, cfRay, isCloudflareBlock = false }) {
+  const err = new Error(message);
+  err.status = status;
+  err.cfRay = cfRay || '';
+  err.isCloudflareBlock = isCloudflareBlock;
+  return err;
+}
+
+async function _parseError(res) {
+  const cfRay = res.headers.get('cf-ray') || '';
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+
+  if (_looksLikeCloudflareBlock(res, contentType)) {
+    const suffix = cfRay ? ` (CF-Ray: ${cfRay})` : '';
+    return _buildError({
+      status: res.status,
+      message: `La verificación de seguridad bloqueó la solicitud${suffix}. Recargá la página y volvé a intentar; si persiste, avisá al administrador con ese código.`,
+      cfRay,
+      isCloudflareBlock: true,
+    });
+  }
+
+  let msg = `Error ${res.status}`;
+  if (contentType.includes('application/json')) {
+    try {
+      const j = await res.json();
+      msg = j.detail || j.message ||
+        (j.non_field_errors && j.non_field_errors[0]) ||
+        Object.values(j).find(v => typeof v === 'string') ||
+        JSON.stringify(j);
+    } catch { /* ignore */ }
+  }
+  return _buildError({ status: res.status, message: msg, cfRay });
+}
+
+function _delayMs(headerValue) {
+  if (!headerValue) return 1000;
+  const n = parseInt(headerValue, 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n * 1000, 500), 5000) : 1000;
+}
+
+async function _fetchWithRetry(url, opts) {
+  let res = await fetch(url, opts);
+  if (RETRYABLE_STATUSES.has(res.status)) {
+    const wait = _delayMs(res.headers.get('retry-after'));
+    await new Promise(r => setTimeout(r, wait));
+    res = await fetch(url, opts);
+  }
+  return res;
+}
+
+async function request(method, path, body, isFormData = false) {
+  const makeOpts = (token) => {
+    const headers = {
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const opts = { method, headers, credentials: 'include' };
+    if (!isFormData && body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    } else if (body !== undefined) {
+      opts.body = body;
+    }
+    return opts;
+  };
+
+  let res = await _fetchWithRetry(`${BASE}${path}`, makeOpts(_accessToken));
+
+  if (res.status === 401 && path !== '/auth/login/' && path !== '/auth/refresh/') {
+    const newToken = await _tryRefresh();
+    if (newToken) {
+      res = await _fetchWithRetry(`${BASE}${path}`, makeOpts(newToken));
+    }
+  }
+
+  if (!res.ok) throw await _parseError(res);
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+const get   = path             => request('GET',    path);
+const post  = (path, b, f)     => request('POST',   path, b, f);
+const put   = (path, b, f)     => request('PUT',    path, b, f);
+const patch = (path, b, f)     => request('PATCH',  path, b, f);
+const del   = path             => request('DELETE', path);
+
+async function downloadBlob(path) {
+  const makeOpts = (token) => {
+    const headers = {
+      'Accept': 'application/octet-stream, */*',
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return { method: 'GET', headers, credentials: 'include' };
+  };
+  let res = await _fetchWithRetry(`${BASE}${path}`, makeOpts(_accessToken));
+  if (res.status === 401) {
+    const newToken = await _tryRefresh();
+    if (newToken) res = await _fetchWithRetry(`${BASE}${path}`, makeOpts(newToken));
+  }
+  if (!res.ok) throw await _parseError(res);
+  return res.blob();
+}
+
+export const api = {
+  auth: {
+    login:       body         => post('/auth/login/', body).then(r => r),
+    refresh:     ()           => fetch(`${BASE}/auth/refresh/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    }).then(r => r.json()),
+    logout:      ()           => post('/auth/logout/'),
+    me:          ()           => get('/auth/me/'),
+    setup2fa:    ()           => get('/auth/2fa/setup/'),
+    enable2fa:   body         => post('/auth/2fa/enable/', body),
+    disable2fa:  body         => post('/auth/2fa/disable/', body),
+    verify2fa:   body         => post('/auth/2fa/verify/', body),
+    // User management (SuperUser only)
+    listUsers:         ()           => get('/auth/users/'),
+    createUser:        body         => post('/auth/users/create/', body),
+    updateUser:        (id, body)   => put(`/auth/users/${id}/`, body),
+    deleteUser:        id           => del(`/auth/users/${id}/`),
+    resendActivation:  body         => post('/auth/users/resend-activation/', body),
+    getActivationLink: id           => post(`/auth/users/${id}/activation-link/`, {}),
+    activate:              body     => post('/auth/activate/', body),
+    requestPasswordReset:  body     => post('/auth/password-reset/', body),
+    confirmPasswordReset:  body     => post('/auth/password-reset/confirm/', body),
+    // Root (bypass de administración)
+    rootCredChange:    body       => post('/auth/root/cred-change/', body),
+    rootCredConfirm:   body       => post('/auth/root/cred-confirm/', body),
+    rootListAdmins:    ()         => get('/auth/root/admins/'),
+    rootCreateAdmin:   body       => post('/auth/root/admins/create/', body),
+    rootConfirmAdmin:  body       => post('/auth/root/admins/confirm/', body),
+    rootUpdateAdmin:   (id, body) => put(`/auth/root/admins/${id}/`, body),
+    rootDeleteAdmin:   id         => del(`/auth/root/admins/${id}/`),
+    rootCancelPending: id         => del(`/auth/root/admins/pending/${id}/`),
+  },
+
+  comercial: {
+    getOFs:   ()   => get('/comercial/ordenes-fabricacion').then(r => r.data),
+    createOF: body => post('/comercial/ordenes-fabricacion', body).then(r => r.data.orden),
+  },
+
+  administracion: {
+    getOrdenes:      ()         => get('/administracion/ordenes').then(r => r.data),
+    validarAnticipo: (id, b, f) => put(`/administracion/anticipos/${id}/validar`, b, f).then(r => r.data),
+    aprobarDespacho: (id, b, f) => put(`/administracion/despachos/${id}/aprobar`, b, f).then(r => r.data),
+  },
+
+  desarrollo: {
+    getOFsDisponibles: ()   => get('/desarrollo/ordenes-disponibles').then(r => r.data),
+    getPMs:            ()   => get('/desarrollo/pedidos-material').then(r => r.data),
+    createPM:          body => post('/desarrollo/pedidos-material', body).then(r => r.data),
+    getPlanos:         ()   => get('/desarrollo/planos').then(r => r.data),
+    uploadPlano:       fd   => post('/desarrollo/planos', fd, true).then(r => r.data),
+    downloadPlano:     (id) => downloadBlob(`/desarrollo/planos/${id}/archivo`),
+  },
+
+  compras: {
+    getPMs:           ()   => get('/compras/pedidos-material').then(r => r.data),
+    getInsumos:       q    => get(`/compras/insumos${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(r => r.data),
+    createInsumo:     body => post('/compras/insumos', body).then(r => r.data),
+    getFacturas:         ()   => get('/compras/facturas').then(r => r.data),
+    registrarFactura:    fd   => post('/compras/facturas', fd, true).then(r => r.data),
+    downloadFacturaPdf:  (id) => downloadBlob(`/compras/facturas/${id}/pdf`),
+  },
+
+  panol: {
+    getStock:            ()     => get('/panol/stock').then(r => r.data),
+    getIngresos:         ()     => get('/panol/ingresos').then(r => r.data),
+    registrarIngreso:    body   => post('/panol/ingresos', body).then(r => r.data),
+    getMovimientos:      ()     => get('/panol/movimientos').then(r => r.data),
+    despacharProduccion: body   => post('/panol/movimientos/produccion', body).then(r => r.data),
+    getMaterialesOf:     (ofId) => get(`/panol/materiales-of/${ofId}`).then(r => r.data),
+  },
+
+  produccion: {
+    getLotes:      ()         => get('/produccion/lotes-terminados').then(r => r.data),
+    finalizarLote: body       => post('/produccion/lotes-terminados', body).then(r => r.data),
+    avanzarEstado: (id, body) => post(`/produccion/lotes/${id}/avanzar`, body).then(r => r.data),
+  },
+
+  logistica: {
+    getDespachos:          ()   => get('/logistica/despachos').then(r => r.data),
+    createDespacho:        body => post('/logistica/despachos', body).then(r => r.data),
+    solicitarAutorizacion: id   => post(`/logistica/despachos/${id}/solicitar-autorizacion`).then(r => r.data),
+    ejecutar:              id   => post(`/logistica/despachos/${id}/ejecutar`).then(r => r.data),
+  },
+
+  events: {
+    recent: (limit) => get(`/events/recent${limit ? `?limit=${limit}` : ''}`).then(r => r.data),
+  },
+
+  soporte: {
+    listTickets:    ()             => get('/soporte/tickets/').then(r => r.data),
+    createTicket:   (body, files)  => {
+      // Si hay archivos usamos multipart; sino JSON.
+      if (files && files.length > 0) {
+        const fd = new FormData();
+        for (const [k, v] of Object.entries(body)) fd.append(k, v);
+        for (const f of files) fd.append('files', f);
+        return post('/soporte/tickets/', fd, true).then(r => r.data);
+      }
+      return post('/soporte/tickets/', body).then(r => r.data);
+    },
+    getTicket:      id             => get(`/soporte/tickets/${id}/`).then(r => r.data),
+    patchTicket:    (id, body)     => patch(`/soporte/tickets/${id}/`, body).then(r => r.data),
+    addComment:     (id, body)     => post(`/soporte/tickets/${id}/comments/`, body).then(r => r.data),
+    listOFs:        (q)            => get(`/soporte/of/${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(r => r.data),
+    getTrazabilidad: (ofId)        => get(`/soporte/of/${ofId}/trazabilidad/`),
+    // Attachments
+    uploadAttachments: (ticketId, files) => {
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      return post(`/soporte/tickets/${ticketId}/attachments/`, fd, true).then(r => r.data);
+    },
+    downloadAttachment: (ticketId, aid) => downloadBlob(`/soporte/tickets/${ticketId}/attachments/${aid}/download/`),
+    deleteAttachment:   (ticketId, aid) => del(`/soporte/tickets/${ticketId}/attachments/${aid}/`),
+  },
+};

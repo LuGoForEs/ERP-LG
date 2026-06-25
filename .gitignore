@@ -1,0 +1,14 @@
+.env
+.env.prod
+*.sqlite3
+__pycache__/
+*.pyc
+node_modules/
+dist/
+staticfiles/
+backend/media/
+.claude/
+
+# Documento interno de planificación: NO es parte del entregable y contiene
+# contexto interno (infra de sibotec, incidente de seguridad, credenciales de fábrica).
+PLAN_IMPLEMENTACION.md

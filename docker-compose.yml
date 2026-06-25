@@ -12,12 +12,6 @@ services:
       - app1-db-data:/var/lib/postgresql/data
     networks:
       - app1-internal
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app1_user} -d ${POSTGRES_DB:-app1}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
     deploy:
       resources:
         limits:
@@ -41,10 +35,8 @@ services:
     container_name: app1-backend
     restart: always
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      - db
+      - redis
     environment:
       DEBUG: "False"
       SECRET_KEY: ${SECRET_KEY:-}
@@ -80,10 +72,8 @@ services:
     container_name: app1-celery-worker
     restart: always
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      - db
+      - redis
     environment:
       DEBUG: "False"
       SECRET_KEY: ${SECRET_KEY:-}
@@ -103,10 +93,8 @@ services:
     container_name: app1-celery-beat
     restart: always
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      - db
+      - redis
     environment:
       DEBUG: "False"
       SECRET_KEY: ${SECRET_KEY:-}

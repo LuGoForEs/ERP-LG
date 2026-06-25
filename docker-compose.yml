@@ -17,18 +17,6 @@ services:
         limits:
           memory: 256m
 
-  # ---------- CACHE / BROKER: Redis ----------
-  redis:
-    image: redis:7-alpine
-    container_name: app1-redis
-    restart: always
-    networks:
-      - app1-internal
-    deploy:
-      resources:
-        limits:
-          memory: 128m
-
   # ---------- BACKEND: Django (Gunicorn) ----------
   backend:
     build: ./backend
@@ -36,7 +24,6 @@ services:
     restart: always
     depends_on:
       - db
-      - redis
     environment:
       DEBUG: "False"
       SECRET_KEY: ${SECRET_KEY:-}
@@ -47,7 +34,6 @@ services:
       EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
       FRONTEND_URL: https://app1.academia.ar
       RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY:-}
-      REDIS_URL: redis://redis:6379/0
       VIRTUAL_HOST: api.app1.academia.ar
       VIRTUAL_PORT: 8000
       LETSENCRYPT_HOST: api.app1.academia.ar
@@ -65,48 +51,6 @@ services:
       resources:
         limits:
           memory: 384m
-
-  # ---------- CELERY worker ----------
-  celery-worker:
-    build: ./backend
-    container_name: app1-celery-worker
-    restart: always
-    depends_on:
-      - db
-      - redis
-    environment:
-      DEBUG: "False"
-      SECRET_KEY: ${SECRET_KEY:-}
-      DATABASE_URL: postgres://${POSTGRES_USER:-app1_user}:${POSTGRES_PASSWORD:-app1demopass}@db:5432/${POSTGRES_DB:-app1}
-      REDIS_URL: redis://redis:6379/0
-    networks:
-      - app1-internal
-    command: celery -A config worker -l info -Q default
-    deploy:
-      resources:
-        limits:
-          memory: 256m
-
-  # ---------- CELERY beat ----------
-  celery-beat:
-    build: ./backend
-    container_name: app1-celery-beat
-    restart: always
-    depends_on:
-      - db
-      - redis
-    environment:
-      DEBUG: "False"
-      SECRET_KEY: ${SECRET_KEY:-}
-      DATABASE_URL: postgres://${POSTGRES_USER:-app1_user}:${POSTGRES_PASSWORD:-app1demopass}@db:5432/${POSTGRES_DB:-app1}
-      REDIS_URL: redis://redis:6379/0
-    networks:
-      - app1-internal
-    command: celery -A config beat -l info
-    deploy:
-      resources:
-        limits:
-          memory: 128m
 
   # ---------- FRONTEND: React + Nginx ----------
   frontend:

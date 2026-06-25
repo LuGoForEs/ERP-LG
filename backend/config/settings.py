@@ -246,18 +246,11 @@ REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 
-# Cache (Redis DB 1 — DB 0 queda para Celery broker/results)
-def _cache_url():
-    # Reemplaza el número de DB final por 1 si el REDIS_URL termina en /N.
-    base = REDIS_URL
-    if '/' in base.rsplit('//', 1)[-1]:
-        base = base.rsplit('/', 1)[0]
-    return f'{base}/1'
-
+# Cache local en memoria: la app de cátedra no usa Redis. El throttling de DRF
+# (AnonRateThrottle/UserRateThrottle) funciona igual con cache en proceso.
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': config('CACHE_URL', default=_cache_url()),
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'TIMEOUT': 300,
     },
 }
